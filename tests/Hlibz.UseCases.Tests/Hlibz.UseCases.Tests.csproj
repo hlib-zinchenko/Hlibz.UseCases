@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+        ASP0029: Microsoft.Extensions.Validation's [ValidatableType] is experimental on .NET 10;
+        the parity tests use it as the reference the generated validation is compared with.
+        StyleCop's ordering and file name rules are off: fixtures sit together, by use case.
+    -->
+    <NoWarn>$(NoWarn);ASP0029;SA1201;SA1202;SA1204;SA1649</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Validation" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Hlibz.UseCases\Hlibz.UseCases.csproj" />
+    <!-- As an app gets it from the package: the generator runs on this project's handlers. -->
+    <ProjectReference Include="..\..\src\Hlibz.UseCases.Generators\Hlibz.UseCases.Generators.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="System.ComponentModel.DataAnnotations" />
+    <Using Include="Hlibz.Results" />
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+
+</Project>

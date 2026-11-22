@@ -1,0 +1,8 @@
+global using System.ComponentModel;
+global using System.ComponentModel.DataAnnotations;
+global using System.Diagnostics.CodeAnalysis;
+global using System.Reflection;
+
+global using Hlibz.Results;
+
+global using Microsoft.Extensions.DependencyInjection;

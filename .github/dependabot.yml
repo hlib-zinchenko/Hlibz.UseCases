@@ -1,0 +1,37 @@
+# Weekly, grouped: one PR for all NuGet updates, one for all GitHub Actions, one for the SDK.
+# CI runs the tests on every PR, so a green check is what makes these safe to merge.
+# The Microsoft.Extensions abstractions, Hlibz.Results and Microsoft.CodeAnalysis.CSharp are
+# deliberate minimums (see Directory.Packages.props), never bumped: raise them by hand when the
+# package needs a newer API.
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    ignore:
+      - dependency-name: Microsoft.Extensions.DependencyInjection.Abstractions
+      - dependency-name: Microsoft.Extensions.Options
+      - dependency-name: Microsoft.CodeAnalysis.CSharp
+      - dependency-name: Hlibz.Results
+    groups:
+      nuget:
+        patterns: ["*"]
+  # The SDK pinned in global.json: one PR per new patch, which CI then builds with it.
+  - package-ecosystem: dotnet-sdk
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]

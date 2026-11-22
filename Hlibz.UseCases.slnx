@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Hlibz.UseCases/Hlibz.UseCases.csproj" />
+    <Project Path="src/Hlibz.UseCases.Generators/Hlibz.UseCases.Generators.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Hlibz.UseCases.Tests/Hlibz.UseCases.Tests.csproj" />
+    <Project Path="tests/Hlibz.UseCases.Generators.Tests/Hlibz.UseCases.Generators.Tests.csproj" />
+  </Folder>
+</Solution>

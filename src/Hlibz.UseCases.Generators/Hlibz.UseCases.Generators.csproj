@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+      The source generator behind AddUseCases: lists every handler of the assembly it runs on in a
+      UseCaseManifestAttribute, wraps each one in a pipeline that implements the handler's own
+      interface, writes the validation tables of the types its use cases reach, and reports a
+      handler it can't register as a build error. Not a package of its own: Hlibz.UseCases ships it
+      under analyzers/dotnet/cs. netstandard2.0 and Roslyn 4.8, a low minimum, so every SDK that
+      builds net10.0 loads it.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks></TargetFrameworks>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+    <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Hlibz.UseCases.Generators.Tests" />
+  </ItemGroup>
+
+</Project>

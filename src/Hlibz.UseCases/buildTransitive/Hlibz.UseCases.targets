@@ -1,0 +1,21 @@
+<Project>
+
+  <!--
+      AddUseCases reads the handler list the package's source generator writes into every
+      assembly holding handlers, so each of them must compile with the generator, including a
+      project that gets this package indirectly (through a project reference, or through another
+      package). The .NET 10 and 11 SDKs already hand it to such projects, even though pack
+      declares package dependencies with exclude="Analyzers". This is the guard for a build that
+      doesn't: it adds the generator only when it's missing, once.
+  -->
+  <Target Name="_HlibzUseCasesAddGenerator"
+          AfterTargets="ResolvePackageDependenciesForBuild;ResolveNuGetPackageAssets">
+    <ItemGroup>
+      <_HlibzUseCasesGenerator Include="@(Analyzer)"
+                               Condition="'%(Filename)' == 'Hlibz.UseCases.Generators'" />
+      <Analyzer Include="$(MSBuildThisFileDirectory)../analyzers/dotnet/cs/Hlibz.UseCases.Generators.dll"
+                Condition="'@(_HlibzUseCasesGenerator)' == ''" />
+    </ItemGroup>
+  </Target>
+
+</Project>
