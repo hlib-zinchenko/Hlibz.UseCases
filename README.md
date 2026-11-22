@@ -195,8 +195,39 @@ public sealed class CountryCodeAttribute : ValidationAttribute, IDescribedRule
 `ExclusiveMinimum`/`ExclusiveMaximum`, `MinItems`/`MaxItems`, `UniqueItems`, `NotConst` and a
 `Keywords` object for anything else. A rule with no attribute of its own (a cross-field check in
 `IValidatableObject`, or one only the handler can check) takes `[RuleSummary("...")]` on the type,
-property or parameter. Nothing here depends on OpenAPI: an adapter publishes it (one for
-Microsoft.AspNetCore.OpenApi is planned).
+property or parameter. Nothing here depends on OpenAPI: an adapter
+([Hlibz.OpenApi.UseCases](https://www.nuget.org/packages/Hlibz.OpenApi.UseCases) for
+Microsoft.AspNetCore.OpenApi) publishes it.
+
+## OpenAPI
+
+[Hlibz.OpenApi.UseCases](https://www.nuget.org/packages/Hlibz.OpenApi.UseCases), from the
+[Hlibz.OpenApi](https://github.com/hlib-zinchenko/Hlibz.OpenApi#use-cases) repository, puts what
+use cases check into documents built with Microsoft.AspNetCore.OpenApi:
+
+```bash
+dotnet add package Hlibz.OpenApi.UseCases --prerelease
+```
+
+```csharp
+builder.Services.AddOpenApi("atlas", options => options
+    .AddXmlDocumentation()                       // Hlibz.OpenApi.AspNetCore
+    .AddUseCases(useCases => useCases.ValidationResponseType = typeof(ErrorResponse)));
+```
+
+- Every `IDescribedRule` and `[RuleSummary]` becomes schema keywords plus a sentence in
+  `description` and `x-rules`, on the property, record parameter, parameter or type it sits on
+  (next to the `$ref` for a component, as Hlibz.OpenApi's own rules are).
+- DataAnnotations on **positional record parameters** (`[Range]`, `[MinLength]`, `[MaxLength]`,
+  `[StringLength]`, `[Length]`, `[RegularExpression]`, `[Url]`, `[Base64String]`) are written as
+  ASP.NET Core writes them on properties. It only reads properties, so a use case written as a
+  positional record would otherwise publish none of them.
+- Every operation whose handler takes the handler of a use case that can fail validation gets a
+  `400` (`HttpValidationProblemDetails` unless you say otherwise), unless it already documents one.
+
+Rules reach the document only on types that are part of the HTTP contract: bind the use case
+itself (as the body, or with `[AsParameters]`), or give it a record that is also the body
+(`UpdateCityCommand(int Id, CityChanges Changes)`). `samples/Atlas.Api` shows the whole stack.
 
 ## Build errors
 
@@ -218,13 +249,23 @@ Microsoft.AspNetCore.OpenApi is planned).
 - The package is marked AOT-compatible. Validation reads property values through generated
   delegates and attributes through reflection on the types the generator names (kept by trimming).
 
+## Sample
+
+[`samples`](samples/README.md): one `Atlas.Application` library with the use cases, an API on the
+Hlibz stack (`Atlas.Api`: Hlibz.MinimalApi.Endpoints, Hlibz.Results.AspNetCore,
+Hlibz.OpenApi.AspNetCore with Hlibz.OpenApi.UseCases, Hlibz.Redoc.AspNetCore) and a console host
+(`Atlas.Console`, no ASP.NET Core) running them.
+
 ## Related packages
 
 - [Hlibz.Results](https://www.nuget.org/packages/Hlibz.Results): the `Result` types handlers return,
   and [Hlibz.Results.AspNetCore](https://www.nuget.org/packages/Hlibz.Results.AspNetCore) to send
   them as HTTP responses.
-- [Hlibz.OpenApi.AspNetCore](https://www.nuget.org/packages/Hlibz.OpenApi.AspNetCore): OpenAPI
-  transformers; publishing use cases' rules through it is planned.
+- [Hlibz.OpenApi.UseCases](https://www.nuget.org/packages/Hlibz.OpenApi.UseCases): use cases in
+  OpenAPI documents, on the
+  [Hlibz.OpenApi.AspNetCore](https://www.nuget.org/packages/Hlibz.OpenApi.AspNetCore) transformers.
+- [Hlibz.Redoc.AspNetCore](https://www.nuget.org/packages/Hlibz.Redoc.AspNetCore): ReDoc for those
+  documents, served from the app.
 - [Hlibz.MinimalApi.Endpoints](https://www.nuget.org/packages/Hlibz.MinimalApi.Endpoints): minimal
   API endpoints as classes, a natural HTTP client for use cases.
 

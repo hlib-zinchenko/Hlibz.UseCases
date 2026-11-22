@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+      The use cases both hosts share: no ASP.NET Core here. An app references the Hlibz.UseCases
+      package, which brings the generator; inside this repository the generator is referenced as
+      the analyzer it is in the package.
+  -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Hlibz.UseCases\Hlibz.UseCases.csproj" />
+    <ProjectReference Include="..\..\src\Hlibz.UseCases.Generators\Hlibz.UseCases.Generators.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>

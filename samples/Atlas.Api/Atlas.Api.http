@@ -1,0 +1,35 @@
+@host = http://localhost:5300
+
+### A city
+GET {{host}}/api/cities/1
+
+### Invalid id: GetCityQuery's [Range], checked before the handler runs
+GET {{host}}/api/cities/0
+
+### Not found: the handler's failure
+GET {{host}}/api/cities/99
+
+### Invalid: the use case's own rules, validated before the handler runs
+### 400, validationErrors keyed name, countryCode, population, districts[0].population
+POST {{host}}/api/cities
+Content-Type: application/json
+
+{ "name": "", "countryCode": "ua", "population": 0, "districts": [{ "name": "Podil", "population": -1 }] }
+
+### Created
+POST {{host}}/api/cities
+Content-Type: application/json
+
+{ "name": "Lviv", "countryCode": "UA", "population": 717273, "districts": null }
+
+### Conflict: a rule only the handler can check
+POST {{host}}/api/cities
+Content-Type: application/json
+
+{ "name": "Kyiv", "countryCode": "UA", "population": 1, "districts": null }
+
+### The OpenAPI document (also written to openapi/Atlas.Api_atlas.json on every build); ReDoc at /api-docs
+GET {{host}}/openapi/atlas.json
+
+### What reached a handler, and how it ended
+GET {{host}}/audit

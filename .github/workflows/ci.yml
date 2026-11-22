@@ -35,6 +35,18 @@ jobs:
       - name: Test
         run: dotnet test --no-build --configuration Release
 
+      # The build wrote the sample's OpenAPI document; the committed one must match.
+      - name: Sample OpenAPI document is up to date
+        run: git diff --exit-code samples/Atlas.Api/openapi
+
+      # The second client must run without ASP.NET Core: the point of keeping use cases apart.
+      - name: Console sample has no ASP.NET Core
+        run: |
+          config=samples/Atlas.Console/bin/Release/net11.0/Atlas.Console.runtimeconfig.json
+          cat "$config"
+          ! grep -qi aspnetcore "$config"
+          ! grep -qi aspnetcore samples/Atlas.Console/bin/Release/net11.0/Atlas.Console.deps.json
+
       - name: Pack
         run: dotnet pack --no-build --configuration Release --output ./artifacts
 

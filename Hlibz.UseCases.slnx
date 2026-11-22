@@ -1,4 +1,9 @@
 <Solution>
+  <Folder Name="/samples/">
+    <Project Path="samples/Atlas.Application/Atlas.Application.csproj" />
+    <Project Path="samples/Atlas.Api/Atlas.Api.csproj" />
+    <Project Path="samples/Atlas.Console/Atlas.Console.csproj" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/Hlibz.UseCases/Hlibz.UseCases.csproj" />
     <Project Path="src/Hlibz.UseCases.Generators/Hlibz.UseCases.Generators.csproj" />

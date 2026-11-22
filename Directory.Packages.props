@@ -5,9 +5,11 @@
     <ItemGroup>
         <!-- A minimum: packed as ">= 2.2.0", so an app picks any newer 2.x itself. -->
         <PackageVersion Include="Hlibz.Results" Version="2.2.0" />
-        <!-- Hlibz.OpenApi.UseCases (proof of concept): the transformers it builds on. -->
-        <PackageVersion Include="Hlibz.OpenApi.AspNetCore" Version="1.0.0" />
-        <!-- Tests and samples: the HTTP error body, endpoints and ReDoc of the Hlibz stack. -->
+        <!--
+            Tests and samples: the HTTP error body, endpoints, OpenAPI document and ReDoc of the
+            Hlibz stack. Hlibz.OpenApi.UseCases brings Hlibz.OpenApi.AspNetCore.
+        -->
+        <PackageVersion Include="Hlibz.OpenApi.UseCases" Version="1.1.0-preview.1" />
         <PackageVersion Include="Hlibz.Results.AspNetCore" Version="2.2.0" />
         <PackageVersion Include="Hlibz.MinimalApi.Endpoints" Version="1.0.0" />
         <PackageVersion Include="Hlibz.Redoc.AspNetCore" Version="2.5.0" />

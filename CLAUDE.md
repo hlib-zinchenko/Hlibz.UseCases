@@ -35,8 +35,20 @@ How it fits together:
   parameter attributes once, as that engine's `ValidationAttributeCache` does.
 - Async validation (`AsyncValidationAttribute`, `IAsyncValidatableObject`) exists only on .NET 11:
   `#if NET11_0_OR_GREATER`.
-- The text-only rule attribute is `[RuleSummary]`, not `[RuleText]`: that name would clash with
-  Hlibz.OpenApi's `RuleText` class wherever both namespaces are in scope.
+
+- The OpenAPI adapter, `Hlibz.OpenApi.UseCases`, lives in the
+  [Hlibz.OpenApi](https://github.com/hlib-zinchenko/Hlibz.OpenApi) repository (a proof of concept
+  here first). It reads `IDescribedRule`, `RuleDescription` and `IUseCaseCatalog`, so a change to
+  those is a change to it. The attribute is `[RuleSummary]`, not `[RuleText]`: that name would
+  clash with Hlibz.OpenApi's `RuleText` class wherever both namespaces are in scope.
+
+- `samples/`: `Atlas.Application` (use cases, handlers, `AuditFilter`), `Atlas.Api` (the Hlibz
+  stack from NuGet: Endpoints, Results.AspNetCore, OpenApi.UseCases, ReDoc; port 5300,
+  `Atlas.Api.http`, `/api-docs`) and `Atlas.Console` (no ASP.NET Core; CI checks its runtime
+  config). net11.0 only, never packed. Keep `samples/README.md` in step. `Atlas.Api`'s build
+  writes `samples/Atlas.Api/openapi/Atlas.Api_atlas.json` (Microsoft.Extensions.ApiDescription.Server):
+  committed, and CI fails when a build changes it, so build before committing a change to the
+  sample or the use cases, or a bump of Hlibz.OpenApi.UseCases.
 
 ## Requires
 
@@ -51,7 +63,11 @@ dotnet test
 dotnet test -f net11.0
 dotnet pack -c Release -o ./artifacts
 .github/scripts/check-packed-generator.sh ./artifacts   # an indirect consumer of the nupkg, net10.0
+dotnet run --project samples/Atlas.Console -- create Lviv UA 717273
+dotnet run --project samples/Atlas.Api                  # :5300, try Atlas.Api.http
 ```
+
+If you start `Atlas.Api`, stop it when you're done.
 
 ## Conventions
 
