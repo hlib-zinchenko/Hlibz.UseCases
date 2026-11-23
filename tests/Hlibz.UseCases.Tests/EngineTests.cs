@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 using Microsoft.Extensions.Options;
 
 #if NET11_0_OR_GREATER
@@ -24,6 +26,42 @@ public sealed class EngineTests
                 .ValidateAsync(new ChainCommand(chain), Token));
 
         Assert.Contains("Maximum validation depth of 32", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Validate_WithDisplayNamePolicy_NamesFieldsByPolicyAndKeepsKeys()
+    {
+        using ServiceProvider provider = Services.Build(services => services.AddUseCases(
+            [],
+            options => options.Validation.DisplayNamePolicy = JsonNamingPolicy.SnakeCaseLower));
+        using IServiceScope scope = provider.CreateScope();
+
+        IReadOnlyDictionary<string, string[]>? errors = await scope.ServiceProvider
+            .GetRequiredService<IUseCaseValidator>()
+            .ValidateAsync(
+                new CreateCityCommand(string.Empty, 2000, new Household(2, 1), []),
+                Token);
+
+        Assert.NotNull(errors);
+        Assert.Equal(["Name", "MagnitudeKm"], errors.Keys);
+        Assert.Equal(["The name field is required."], errors["Name"]);
+        Assert.Equal(["The field magnitude_km must be between 1 and 1000."], errors["MagnitudeKm"]);
+    }
+
+    [Fact]
+    public async Task Validate_WithDisplayNamePolicyAndDisplayName_UsesDisplayName()
+    {
+        using ServiceProvider provider = Services.Build(services => services.AddUseCases(
+            [],
+            options => options.Validation.DisplayNamePolicy = JsonNamingPolicy.SnakeCaseLower));
+        using IServiceScope scope = provider.CreateScope();
+
+        IReadOnlyDictionary<string, string[]>? errors = await scope.ServiceProvider
+            .GetRequiredService<IUseCaseValidator>()
+            .ValidateAsync(new Displayed { Name = null, Age = 30 }, Token);
+
+        Assert.NotNull(errors);
+        Assert.Equal(["The Full name field is required."], errors["Name"]);
     }
 
     [Fact]

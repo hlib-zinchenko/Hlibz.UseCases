@@ -61,7 +61,7 @@ public static class UseCaseServiceCollectionExtensions
 
         services.TryAddSingleton(static provider => new ValidationEngine(
             provider.GetRequiredService<UseCaseRegistry>(),
-            provider.GetRequiredService<IOptions<UseCaseOptions>>().Value.Validation.MaxDepth));
+            provider.GetRequiredService<IOptions<UseCaseOptions>>().Value.Validation));
         services.TryAddScoped<IUseCaseValidator>(static provider => new UseCaseValidator(
             provider.GetRequiredService<ValidationEngine>(),
             provider));

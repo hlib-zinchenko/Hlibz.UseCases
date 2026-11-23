@@ -48,4 +48,14 @@ public sealed class UseCaseValidationOptions
     /// exception, which is almost always a circular reference. 32 by default.
     /// </summary>
     public int MaxDepth { get; set; } = DefaultMaxDepth;
+
+    /// <summary>
+    /// Gets or sets how a property without a <see cref="DisplayAttribute"/> name is named in
+    /// messages, e.g. <see cref="JsonNamingPolicy.SnakeCaseLower"/> so that
+    /// <c>The first_name field is required.</c> names the field as clients send it. The
+    /// property's own name when <see langword="null"/> (the default), as
+    /// Microsoft.Extensions.Validation does. Error keys aren't affected: they stay property
+    /// paths (<c>Costs[0].Value</c>), for the transport to rename.
+    /// </summary>
+    public JsonNamingPolicy? DisplayNamePolicy { get; set; }
 }

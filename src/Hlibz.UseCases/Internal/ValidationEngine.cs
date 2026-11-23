@@ -22,23 +22,27 @@ namespace Hlibz.UseCases.Internal;
 /// <item>On .NET 11, <c>AsyncValidationAttribute</c>s run only after the synchronous ones passed,
 /// one at a time, stopping at the first failure, and <c>IAsyncValidatableObject</c> is used when
 /// implemented.</item>
-/// <item>Messages are the attributes' own: there is no localization.</item>
+/// <item>Messages are the attributes' own: there is no localization. A property is named in them
+/// by its <see cref="DisplayAttribute"/>, else by
+/// <see cref="UseCaseValidationOptions.DisplayNamePolicy"/> when set, else as declared.</item>
 /// </list>
 /// </remarks>
 internal sealed class ValidationEngine
 {
     private readonly UseCaseRegistry _registry;
     private readonly int _maxDepth;
+    private readonly JsonNamingPolicy? _displayNamePolicy;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ValidationEngine"/> class.
     /// </summary>
     /// <param name="registry">The validatable types.</param>
-    /// <param name="maxDepth">How deep to go before giving up.</param>
-    public ValidationEngine(UseCaseRegistry registry, int maxDepth)
+    /// <param name="options">How deep to go before giving up, and how to name properties.</param>
+    public ValidationEngine(UseCaseRegistry registry, UseCaseValidationOptions options)
     {
         _registry = registry;
-        _maxDepth = maxDepth;
+        _maxDepth = options.MaxDepth;
+        _displayNamePolicy = options.DisplayNamePolicy;
     }
 
     /// <summary>
@@ -231,9 +235,12 @@ internal sealed class ValidationEngine
         run.Path = Join(original, property.Name);
         string path = run.Path;
 
+        string displayName = rules.Display?.GetName()
+            ?? _displayNamePolicy?.ConvertName(property.Name)
+            ?? property.Name;
         ValidationContext context = new(
             container,
-            rules.Display?.GetName() ?? property.Name,
+            displayName,
             run.Services,
             items: null)
         {

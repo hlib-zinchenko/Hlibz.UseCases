@@ -116,7 +116,8 @@ way ASP.NET Core's validation (Microsoft.Extensions.Validation) does, with none 
   too, **`IValidatableObject`**.
 - On .NET 11, `AsyncValidationAttribute`s (after the synchronous ones pass) and
   `IAsyncValidatableObject`.
-- `[Display(Name = "...")]` names the field in messages.
+- `[Display(Name = "...")]` names the field in messages; without it, `DisplayNamePolicy` (see
+  options) can name it as your clients do: `The first_name field is required.`
 
 An invalid use case returns `Result.Invalid(errors)` (or `Result.Error(errors)`, see options)
 keyed by property path. [Hlibz.Results.AspNetCore](https://www.nuget.org/packages/Hlibz.Results.AspNetCore)
@@ -132,6 +133,7 @@ builder.Services.AddUseCases([typeof(CreateCityCommand).Assembly], options =>
     options.Validation.FailureStatus = ResultStatus.Error; // Invalid by default
     options.Validation.FailureMessage = "Check the fields.";
     options.Validation.MaxDepth = 32;                      // a circular reference throws past it
+    options.Validation.DisplayNamePolicy = JsonNamingPolicy.SnakeCaseLower; // names in messages
     options.Validation.Enabled = true;
 });
 ```
@@ -142,6 +144,8 @@ check input early.
 **Where it differs from Microsoft.Extensions.Validation:**
 
 - No localization: messages are the attributes' own (`ErrorMessageResourceType` works as usual).
+- `DisplayNamePolicy` is this package's own: Microsoft's engine always names a field without
+  `[Display]` as declared, which is also the default here. Keys are property paths either way.
 - Asynchronous attributes run one at a time, stopping at the first failure, rather than
   concurrently.
 - On .NET 10, ASP.NET Core's engine passes a nested attribute the *root* object as
