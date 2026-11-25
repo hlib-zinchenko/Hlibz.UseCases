@@ -210,7 +210,7 @@ Microsoft.AspNetCore.OpenApi) publishes it.
 use cases check into documents built with Microsoft.AspNetCore.OpenApi:
 
 ```bash
-dotnet add package Hlibz.OpenApi.UseCases --prerelease
+dotnet add package Hlibz.OpenApi.UseCases
 ```
 
 ```csharp

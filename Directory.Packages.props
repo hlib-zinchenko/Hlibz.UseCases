@@ -9,7 +9,7 @@
             Tests and samples: the HTTP error body, endpoints, OpenAPI document and ReDoc of the
             Hlibz stack. Hlibz.OpenApi.UseCases brings Hlibz.OpenApi.AspNetCore.
         -->
-        <PackageVersion Include="Hlibz.OpenApi.UseCases" Version="1.1.0-preview.1" />
+        <PackageVersion Include="Hlibz.OpenApi.UseCases" Version="1.1.0" />
         <PackageVersion Include="Hlibz.Results.AspNetCore" Version="2.2.0" />
         <PackageVersion Include="Hlibz.MinimalApi.Endpoints" Version="1.0.0" />
         <PackageVersion Include="Hlibz.Redoc.AspNetCore" Version="2.5.0" />
