@@ -1,8 +1,8 @@
 namespace Atlas.Application.Cities;
 
 /// <summary>
-/// A two-letter ISO country code in capitals. Describes itself, so the OpenAPI document (or a tool
-/// schema) says what it checks.
+/// A two-letter ISO country code in capitals. Describes itself (<see cref="IDescribedRule"/>), so
+/// an OpenAPI document or a tool schema can say what it checks (Hlibz.OpenApi.UseCases does).
 /// </summary>
 [AttributeUsage(AttributeTargets.Property | AttributeTargets.Parameter)]
 public sealed class CountryCodeAttribute : ValidationAttribute, IDescribedRule

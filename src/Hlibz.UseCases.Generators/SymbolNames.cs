@@ -23,6 +23,11 @@ internal static class SymbolNames
     public const string HandlerWithResult = "Hlibz.UseCases.IUseCaseHandler`2";
 
     /// <summary>
+    /// The metadata name of the handler of a use case declaring its errors.
+    /// </summary>
+    public const string HandlerWithErrors = "Hlibz.UseCases.IUseCaseHandler`3";
+
+    /// <summary>
     /// The metadata name of the attribute the manifest derives from.
     /// </summary>
     public const string Manifest = "Hlibz.UseCases.UseCaseManifestAttribute";

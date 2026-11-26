@@ -2,9 +2,7 @@ using System.Text.Json;
 
 using Microsoft.Extensions.Options;
 
-#if NET11_0_OR_GREATER
 using Microsoft.Extensions.Validation;
-#endif
 
 namespace Hlibz.UseCases.Tests;
 
@@ -77,7 +75,6 @@ public sealed class EngineTests
         Assert.Null(errors);
     }
 
-#if NET11_0_OR_GREATER
     [Fact]
     public async Task Validate_WithAsyncRules_RunsThemAfterSynchronousOnesAsMicrosoftDoes()
     {
@@ -107,7 +104,6 @@ public sealed class EngineTests
                 ours?.SelectMany(pair => pair.Value.Select(message => $"{pair.Key} => {message}")) ?? []);
         }
     }
-#endif
 }
 
 public sealed class Chain
@@ -126,7 +122,6 @@ internal sealed class ChainCommandHandler : IUseCaseHandler<ChainCommand>
         Task.FromResult(Result.Success());
 }
 
-#if NET11_0_OR_GREATER
 [ValidatableType]
 public sealed record AsyncCommand([MinLength(2), NotTaken] string Name) : IUseCase, IAsyncValidatableObject
 {
@@ -168,4 +163,3 @@ internal sealed class AsyncCommandHandler : IUseCaseHandler<AsyncCommand>
     public Task<Result> HandleAsync(AsyncCommand useCase, CancellationToken cancellationToken = default) =>
         Task.FromResult(Result.Success());
 }
-#endif

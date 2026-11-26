@@ -4,8 +4,9 @@
 
     <!--
         Samples are apps, not packages: one target framework, never packed. They keep
-        GenerateDocumentationFile on, because their XML summaries are what the OpenAPI documents
-        show; StyleCop's documentation rules are off, since a summary is all a sample type needs.
+        GenerateDocumentationFile on, so their XML summaries are checked as a package's are (and
+        reach an OpenAPI document wherever they are used); StyleCop's documentation rules are off,
+        since a summary is all a sample type needs.
     -->
     <PropertyGroup>
         <TargetFrameworks></TargetFrameworks>

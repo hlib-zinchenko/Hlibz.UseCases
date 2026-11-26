@@ -1,3 +1,3 @@
 namespace Atlas.Application.Cities;
 
-public interface ICreateCityCommandHandler : IUseCaseHandler<CreateCityCommand, CityDto>;
+public interface ICreateCityCommandHandler : IUseCaseHandler<CreateCityCommand, CityDto, CreateCityError>;

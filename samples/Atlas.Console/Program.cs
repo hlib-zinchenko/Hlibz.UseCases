@@ -15,7 +15,7 @@ services.AddAtlasApplication();
 await using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
 await using AsyncServiceScope scope = provider.CreateAsyncScope();
 
-Result result = args switch
+Result? result = args switch
 {
     ["get", string id] => await scope.ServiceProvider
         .GetRequiredService<IGetCityQueryHandler>()
@@ -23,22 +23,28 @@ Result result = args switch
     ["create", string name, string country, string population] => await scope.ServiceProvider
         .GetRequiredService<ICreateCityCommandHandler>()
         .HandleAsync(new CreateCityCommand(name, country, int.Parse(population, CultureInfo.InvariantCulture), Districts: null)),
-    _ => Result.Error("Usage: get <id> | create <name> <country code> <population>"),
+    _ => null,
 };
 
-Console.WriteLine(Describe(result));
+Console.WriteLine(result switch
+{
+    null => "Usage: get <id> | create <name> <country code> <population>",
+    Result<CityDto> { IsSuccess: true, Value: var city } => $"{city.Id}: {city.Name}, {city.CountryCode} ({city.Population:N0})",
+
+    // An ambient error: the pipeline rejected the use case before its handler ran.
+    { Error: ValidationFailed failed } => string.Join(
+        Environment.NewLine,
+        failed.Errors.Select(pair => $"{pair.Key}: {string.Join(" ", pair.Value)}").Prepend("Invalid:")),
+
+    // A declared error, with its data.
+    Result<CityDto, CreateCityError> { DeclaredError: CityNameTaken taken } => $"City {taken.CityId} already has that name.",
+    Result<CityDto, GetCityError> { DeclaredError: CityNotFound missing } => $"No city {missing.CityId}.",
+    _ => result.ToString(),
+});
+
 foreach (string entry in provider.GetRequiredService<CityStore>().AuditLog)
 {
     Console.WriteLine($"audit: {entry}");
 }
 
-return result.IsSuccess ? 0 : 1;
-
-static string Describe(Result result) => result switch
-{
-    Result<CityDto> { IsSuccess: true, Value: var city } => $"{city.Id}: {city.Name}, {city.CountryCode} ({city.Population:N0})",
-    { ValidationErrors: { } errors } => string.Join(
-        Environment.NewLine,
-        errors.Select(pair => $"{pair.Key}: {string.Join(" ", pair.Value)}").Prepend($"{result.Status}:")),
-    _ => $"{result.Status}: {result.ErrorMessage}",
-};
+return result is { IsSuccess: true } ? 0 : 1;

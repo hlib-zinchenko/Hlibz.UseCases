@@ -114,12 +114,11 @@ internal sealed class ValidationEngine
         bool failed = false;
         foreach (ValidationAttribute attribute in attributes)
         {
-#if NET11_0_OR_GREATER
             if (attribute is AsyncValidationAttribute)
             {
                 continue;
             }
-#endif
+
             ValidationResult? result = attribute.GetValidationResult(value, context);
             if (Failed(result))
             {
@@ -128,7 +127,6 @@ internal sealed class ValidationEngine
             }
         }
 
-#if NET11_0_OR_GREATER
         if (failed)
         {
             return;
@@ -145,11 +143,6 @@ internal sealed class ValidationEngine
                 return;
             }
         }
-#else
-        _ = failed;
-        _ = run;
-        await Task.CompletedTask.ConfigureAwait(false);
-#endif
     }
 
     private static async ValueTask ValidateObjectAsync(
@@ -158,7 +151,6 @@ internal sealed class ValidationEngine
         Run run,
         string path)
     {
-#if NET11_0_OR_GREATER
         if (value is IAsyncValidatableObject asyncValidatable)
         {
             await foreach (ValidationResult result in asyncValidatable
@@ -170,9 +162,6 @@ internal sealed class ValidationEngine
 
             return;
         }
-#else
-        await Task.CompletedTask.ConfigureAwait(false);
-#endif
 
         if (value is IValidatableObject validatable)
         {

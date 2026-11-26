@@ -124,6 +124,7 @@ internal static class ManifestWriter
     private static void WriteRegistration(StringBuilder source, HandlerModel handler, int index)
     {
         string result = handler.ResultName is null ? "null" : $"typeof({handler.ResultName})";
+        string error = handler.ErrorName is null ? "null" : $"typeof({handler.ErrorName})";
         string generic = handler.HandlerInterface;
         source.Append(
             $$"""
@@ -131,6 +132,7 @@ internal static class ManifestWriter
                             typeof({{handler.UseCaseName}}),
                             typeof({{handler.HandlerName}}),
                             {{result}},
+                            {{error}},
                             static services =>
                             {
                                 {{TryAdd}}.TryAddScoped<{{handler.HandlerName}}>(services);
@@ -198,12 +200,8 @@ internal static class ManifestWriter
     private static void WritePipeline(StringBuilder source, HandlerModel handler, int index)
     {
         string interfaces = string.Join(", ", new[] { handler.HandlerInterface }.Concat(handler.Interfaces));
-        string returns = handler.ResultArgument is null
-            ? "global::System.Threading.Tasks.Task<global::Hlibz.Results.Result>"
-            : $"global::System.Threading.Tasks.Task<global::Hlibz.Results.Result<{handler.ResultArgument}>>";
-        string invoke = handler.ResultArgument is null
-            ? $"InvokeAsync<{handler.UseCaseArgument}>"
-            : $"InvokeAsync<{handler.UseCaseArgument}, {handler.ResultArgument}>";
+        string returns = $"global::System.Threading.Tasks.Task<{handler.ResultType}>";
+        string invoke = $"InvokeAsync<{handler.TypeArguments}>";
         source.Append(
             $$"""
 

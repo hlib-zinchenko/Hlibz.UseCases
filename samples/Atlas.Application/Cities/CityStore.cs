@@ -19,9 +19,9 @@ public sealed class CityStore
 
     public CityDto? Find(int id) => _cities.GetValueOrDefault(id);
 
-    public bool NameTaken(string name, string countryCode) =>
-        _cities.Values.Any(city => city.CountryCode == countryCode
-                                   && string.Equals(city.Name, name, StringComparison.OrdinalIgnoreCase));
+    public CityDto? FindByName(string name, string countryCode) =>
+        _cities.Values.FirstOrDefault(city => city.CountryCode == countryCode
+                                              && string.Equals(city.Name, name, StringComparison.OrdinalIgnoreCase));
 
     public CityDto Add(string name, string countryCode, int population)
     {

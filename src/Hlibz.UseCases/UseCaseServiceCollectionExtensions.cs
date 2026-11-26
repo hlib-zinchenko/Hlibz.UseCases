@@ -11,14 +11,13 @@ namespace Hlibz.UseCases;
 public static class UseCaseServiceCollectionExtensions
 {
     private const string InvalidOptionsMessage =
-        "UseCaseOptions.Validation.FailureStatus must be Invalid or Error, and MaxDepth greater "
-        + "than 0.";
+        "UseCaseOptions.Validation.MaxDepth must be greater than 0.";
 
     /// <summary>
     /// Registers every use case handler in <paramref name="assemblies"/>, each wrapped in its
     /// pipeline (validation, then the filters, then the handler) and registered scoped under its
-    /// own interface, <see cref="IUseCaseHandler{TUseCase, TResult}"/> (or
-    /// <see cref="IUseCaseHandler{TUseCase}"/>) and <see cref="IUseCaseHandler"/>. Also registers
+    /// own interface, the <c>IUseCaseHandler&lt;...&gt;</c> it implements and
+    /// <see cref="IUseCaseHandler"/>. Also registers
     /// <see cref="IUseCaseCatalog"/> and <see cref="IUseCaseValidator"/>.
     /// </summary>
     /// <param name="services">The services.</param>
@@ -86,9 +85,7 @@ public static class UseCaseServiceCollectionExtensions
         return services;
     }
 
-    private static bool IsValid(UseCaseOptions options) =>
-        options.Validation.FailureStatus is ResultStatus.Invalid or ResultStatus.Error
-        && options.Validation.MaxDepth > 0;
+    private static bool IsValid(UseCaseOptions options) => options.Validation.MaxDepth > 0;
 
     /// <summary>
     /// The registry this service collection's earlier calls filled, or a new one, registered with

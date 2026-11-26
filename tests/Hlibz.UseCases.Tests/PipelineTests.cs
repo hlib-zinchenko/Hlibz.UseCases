@@ -35,33 +35,12 @@ public sealed class PipelineTests
                     [new CostLine(5, "OK"), new CostLine(-1, "low")]),
                 Token);
 
-        Assert.Equal(ResultStatus.Invalid, result.Status);
+        ValidationFailed failure = Assert.IsType<ValidationFailed>(result.Error);
         Assert.Equal(
             ["Name", "MagnitudeKm", "Household.Adults", "Costs[1].Value", "Costs[1].Note"],
-            result.ValidationErrors!.Keys);
-        Assert.Equal(["The Name field is required."], result.ValidationErrors["Name"]);
+            failure.Errors.Keys);
+        Assert.Equal(["The Name field is required."], failure.Errors["Name"]);
         Assert.Empty(provider.GetRequiredService<CallLog>().Entries);
-    }
-
-    [Fact]
-    public async Task HandleAsync_WithErrorFailureStatus_ReturnsErrorWithValidationErrors()
-    {
-        using ServiceProvider provider = Services.Build(services => services.AddUseCases(
-            [],
-            options =>
-            {
-                options.Validation.FailureStatus = ResultStatus.Error;
-                options.Validation.FailureMessage = "Check the fields.";
-            }));
-        using IServiceScope scope = provider.CreateScope();
-
-        Result result = await scope.ServiceProvider
-            .GetRequiredService<IDeleteCityCommandHandler>()
-            .HandleAsync(new DeleteCityCommand(0), Token);
-
-        Assert.Equal(ResultStatus.Error, result.Status);
-        Assert.Equal("Check the fields.", result.ErrorMessage);
-        Assert.Equal(["Id"], result.ValidationErrors!.Keys);
     }
 
     [Fact]
@@ -128,8 +107,7 @@ public sealed class PipelineTests
             .GetRequiredService<ICreateCityCommandHandler>()
             .HandleAsync(CreateCityCommand.Valid(), Token);
 
-        Assert.Equal(ResultStatus.Forbidden, result.Status);
-        Assert.Equal("Not for you.", result.ErrorMessage);
+        Assert.IsType<Forbidden>(result.Error);
         Assert.Empty(provider.GetRequiredService<CallLog>().Entries);
     }
 
@@ -154,7 +132,7 @@ public sealed class PipelineTests
             .GetRequiredService<IDeleteCityCommandHandler>()
             .HandleAsync(new DeleteCityCommand(404), Token);
 
-        Assert.Equal(ResultStatus.NotFound, result.Status);
+        Assert.Equal(new CityNotFound(404), result.Error);
         Assert.Equal(
             ["first:before:DeleteCityCommand", "handler", "first:after:NotFound"],
             provider.GetRequiredService<CallLog>().Entries);
@@ -171,5 +149,126 @@ public sealed class PipelineTests
             .HandleAsync(new PingQuery("pong"), Token);
 
         Assert.Equal("pong", result.Value);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithDeclaredErrors_ReturnsValue()
+    {
+        using ServiceProvider provider = Services.Build();
+        using IServiceScope scope = provider.CreateScope();
+
+        Result<CityDto, RenameCityError> result = await scope.ServiceProvider
+            .GetRequiredService<IRenameCityCommandHandler>()
+            .HandleAsync(new RenameCityCommand(1, "Odesa"), Token);
+
+        Assert.Equal(new CityDto("Odesa"), result.Value);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithDeclaredErrorReturned_KeepsItAsDeclaredError()
+    {
+        using ServiceProvider provider = Services.Build();
+        using IServiceScope scope = provider.CreateScope();
+
+        Result<CityDto, RenameCityError> result = await scope.ServiceProvider
+            .GetRequiredService<IRenameCityCommandHandler>()
+            .HandleAsync(new RenameCityCommand(1, "Lviv"), Token);
+
+        string described = result.DeclaredError switch
+        {
+            CityNotFound notFound => $"missing {notFound.CityId}",
+            CityNameTaken taken => $"taken {taken.Name}",
+            null => "none",
+        };
+        Assert.Equal("taken Lviv", described);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithDeclaredErrorsAndInvalidUseCase_ReturnsValidationFailedWithoutRunningHandler()
+    {
+        using ServiceProvider provider = Services.Build();
+        using IServiceScope scope = provider.CreateScope();
+
+        Result<CityDto, RenameCityError> result = await scope.ServiceProvider
+            .GetRequiredService<IRenameCityCommandHandler>()
+            .HandleAsync(new RenameCityCommand(0, string.Empty), Token);
+
+        ValidationFailed failure = Assert.IsType<ValidationFailed>(result.Error);
+        Assert.Equal(["Id", "Name"], failure.Errors.Keys);
+        Assert.Null(result.DeclaredError);
+        Assert.Empty(provider.GetRequiredService<CallLog>().Entries);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithDeclaredErrorsAndFilterPassingThrough_KeepsDeclaredError()
+    {
+        using ServiceProvider provider = Services.Build(services => services.AddUseCaseFilter<FirstFilter>());
+        using IServiceScope scope = provider.CreateScope();
+
+        Result<CityDto, RenameCityError> result = await scope.ServiceProvider
+            .GetRequiredService<IRenameCityCommandHandler>()
+            .HandleAsync(new RenameCityCommand(404, "Odesa"), Token);
+
+        Assert.True(result.DeclaredError is CityNotFound { CityId: 404 });
+        Assert.Equal(
+            ["first:before:RenameCityCommand", "handler", "first:after:NotFound"],
+            provider.GetRequiredService<CallLog>().Entries);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithDeclaredErrorsAndFilterFailingAmbiently_ReturnsItsFailure()
+    {
+        using ServiceProvider provider = Services.Build(services => services.AddUseCaseFilter<ForbiddingFilter>());
+        using IServiceScope scope = provider.CreateScope();
+
+        Result<CityDto, RenameCityError> result = await scope.ServiceProvider
+            .GetRequiredService<IRenameCityCommandHandler>()
+            .HandleAsync(new RenameCityCommand(1, "Odesa"), Token);
+
+        Assert.IsType<Forbidden>(result.Error);
+        Assert.Null(result.DeclaredError);
+        Assert.Empty(provider.GetRequiredService<CallLog>().Entries);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithDeclaredErrorsAndFilterFailingWithUndeclaredError_Throws()
+    {
+        using ServiceProvider provider = Services.Build(services => services.AddUseCaseFilter<UndeclaredErrorFilter>());
+        using IServiceScope scope = provider.CreateScope();
+        IRenameCityCommandHandler handler = scope.ServiceProvider.GetRequiredService<IRenameCityCommandHandler>();
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => handler.HandleAsync(new RenameCityCommand(1, "Odesa"), Token));
+
+        Assert.Contains("UndeclaredError", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("RenameCityError", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithUndeclaredErrorsAndFilterFailingWithAnyError_ReturnsIt()
+    {
+        using ServiceProvider provider = Services.Build(services => services.AddUseCaseFilter<UndeclaredErrorFilter>());
+        using IServiceScope scope = provider.CreateScope();
+
+        Result<CityDto> result = await scope.ServiceProvider
+            .GetRequiredService<ICreateCityCommandHandler>()
+            .HandleAsync(CreateCityCommand.Valid(), Token);
+
+        Assert.IsType<UndeclaredError>(result.Error);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithDeclaredErrorsAndUnit_ReturnsSuccessOrDeclaredError()
+    {
+        using ServiceProvider provider = Services.Build();
+        using IServiceScope scope = provider.CreateScope();
+        IUseCaseHandler<ArchiveCityCommand, Unit, RenameCityError> handler = scope.ServiceProvider
+            .GetRequiredService<IUseCaseHandler<ArchiveCityCommand, Unit, RenameCityError>>();
+
+        Result<Unit, RenameCityError> archived = await handler.HandleAsync(new ArchiveCityCommand(1), Token);
+        Result<Unit, RenameCityError> missing = await handler.HandleAsync(new ArchiveCityCommand(404), Token);
+
+        Assert.True(archived.IsSuccess);
+        Assert.True(missing.DeclaredError is CityNotFound);
     }
 }

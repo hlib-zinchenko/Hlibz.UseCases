@@ -65,6 +65,7 @@ internal sealed class UseCaseRegistry : IUseCaseCatalog
                     registration.UseCaseType,
                     registration.HandlerType,
                     registration.ResultType,
+                    registration.ErrorSetType,
                     _validatableTypes.ContainsKey(registration.UseCaseType)));
             _registrations.Add(registration);
         }

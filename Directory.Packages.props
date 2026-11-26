@@ -3,20 +3,24 @@
         <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     </PropertyGroup>
     <ItemGroup>
-        <!-- A minimum: packed as ">= 2.2.0", so an app picks any newer 2.x itself. -->
-        <PackageVersion Include="Hlibz.Results" Version="2.2.0" />
+        <!-- A minimum: packed as ">= 3.0.0", so an app picks any newer 3.x itself. -->
+        <PackageVersion Include="Hlibz.Results" Version="3.0.0-preview.1" />
+        <!-- Samples only: Atlas.Api sends the use cases' results as HTTP responses. -->
+        <PackageVersion Include="Hlibz.Results.AspNetCore" Version="3.0.0-preview.1" />
         <!--
-            Tests and samples: the HTTP error body, endpoints, OpenAPI document and ReDoc of the
-            Hlibz stack. Hlibz.OpenApi.UseCases brings Hlibz.OpenApi.AspNetCore.
+            The Microsoft.Extensions abstractions, both minimums (Dependabot ignores them).
+            Microsoft.Extensions.DependencyInjection and Microsoft.Extensions.Validation are
+            test-only: the container the tests resolve from, and the engine the parity tests
+            compare the generated validation with.
         -->
-        <PackageVersion Include="Hlibz.OpenApi.UseCases" Version="1.1.0" />
-        <PackageVersion Include="Hlibz.Results.AspNetCore" Version="2.2.0" />
-        <PackageVersion Include="Hlibz.MinimalApi.Endpoints" Version="1.0.0" />
-        <PackageVersion Include="Hlibz.Redoc.AspNetCore" Version="2.5.0" />
+        <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="11.0.0" />
+        <PackageVersion Include="Microsoft.Extensions.Options" Version="11.0.0" />
+        <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="11.0.0" />
+        <PackageVersion Include="Microsoft.Extensions.Validation" Version="11.0.0" />
         <!--
             The Roslyn the source generator builds against, and so the oldest compiler that can
-            load it: a deliberately low minimum (4.8), far below the .NET 10 SDK's, so every SDK
-            that can build a net10.0 project loads it. Raise it only when the generator needs a
+            load it: a deliberately low minimum (4.8), far below the .NET 11 SDK's, so every SDK
+            that builds the package's consumers loads it. Raise it only when the generator needs a
             newer Roslyn API (Dependabot ignores it).
         -->
         <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" />
@@ -25,33 +29,5 @@
         <PackageVersion Include="StyleCop.Analyzers" Version="1.3.180" />
         <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
         <PackageVersion Include="xunit.v3" Version="4.0.3" />
-    </ItemGroup>
-
-    <!--
-        The Microsoft.Extensions abstractions, one major per target framework, both minimums
-        (Dependabot ignores them). Microsoft.Extensions.DependencyInjection and
-        Microsoft.Extensions.Validation are test-only: the container the tests resolve from, and
-        the engine the parity tests compare the generated validation with.
-    -->
-    <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
-        <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
-        <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.0" />
-        <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
-        <PackageVersion Include="Microsoft.Extensions.Validation" Version="10.0.15" />
-        <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
-        <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.14" />
-    </ItemGroup>
-    <ItemGroup Condition="'$(TargetFramework)' == 'net11.0'">
-        <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="11.0.0" />
-        <PackageVersion Include="Microsoft.Extensions.Options" Version="11.0.0" />
-        <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="11.0.0" />
-        <PackageVersion Include="Microsoft.Extensions.Validation" Version="11.0.0" />
-        <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="11.0.0" />
-        <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="11.0.0" />
-        <!--
-            Samples only: writes the documents at build time. Its tool only runs apps of its own
-            major, hence per target framework.
-        -->
-        <PackageVersion Include="Microsoft.Extensions.ApiDescription.Server" Version="11.0.0" />
     </ItemGroup>
 </Project>

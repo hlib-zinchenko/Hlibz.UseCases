@@ -3,8 +3,8 @@ using Microsoft.Extensions.Options;
 namespace Hlibz.UseCases;
 
 /// <summary>
-/// Runs a use case through validation and the registered <see cref="IUseCaseFilter"/>s, then its
-/// handler. The pipeline the source generator wraps every handler in calls it; clients never do.
+/// Runs a use case through validation (an invalid one fails with <see cref="ValidationFailed"/>)
+/// and the registered <see cref="IUseCaseFilter"/>s, then its handler. The pipeline the source generator wraps every handler in calls it; clients never do.
 /// Scoped.
 /// </summary>
 [EditorBrowsable(EditorBrowsableState.Never)]
@@ -40,6 +40,52 @@ public sealed class UseCasePipeline
     }
 
     /// <summary>
+    /// Handles a use case that declares its errors.
+    /// </summary>
+    /// <typeparam name="TUseCase">The use case type.</typeparam>
+    /// <typeparam name="TResult">What it returns.</typeparam>
+    /// <typeparam name="TError">The errors it declares.</typeparam>
+    /// <param name="useCase">The use case to handle.</param>
+    /// <param name="handler">The handler (not its pipeline).</param>
+    /// <param name="cancellationToken">Stops the work.</param>
+    /// <returns>The handler's result, or the ambient failure validation or a filter returned.</returns>
+    /// <exception cref="InvalidOperationException">A filter returned a success without calling
+    /// <c>next</c>, or failed with an error that is neither ambient nor one of the set's.</exception>
+    public async Task<Result<TResult, TError>> InvokeAsync<TUseCase, TResult, TError>(
+        TUseCase useCase,
+        IUseCaseHandler<TUseCase, TResult, TError> handler,
+        CancellationToken cancellationToken)
+        where TUseCase : IUseCase
+        where TError : struct, IUnion
+    {
+        ArgumentNullException.ThrowIfNull(useCase);
+        ArgumentNullException.ThrowIfNull(handler);
+
+        if (await ValidateAsync(useCase, cancellationToken).ConfigureAwait(false) is { } invalid)
+        {
+            return invalid;
+        }
+
+        if (_filters.Length == 0)
+        {
+            return await handler.HandleAsync(useCase, cancellationToken).ConfigureAwait(false);
+        }
+
+        Result result = await RunFiltersAsync(
+            Context(useCase, typeof(TUseCase), handler, cancellationToken),
+            async context => await handler
+                .HandleAsync(useCase, context.CancellationToken)
+                .ConfigureAwait(false)).ConfigureAwait(false);
+
+        return result switch
+        {
+            Result<TResult, TError> typed => typed,
+            { Error: { } error } => FilterFailure<TResult, TError>(error, handler),
+            _ => throw SuccessWithoutHandler(handler),
+        };
+    }
+
+    /// <summary>
     /// Handles a use case that returns a value.
     /// </summary>
     /// <typeparam name="TUseCase">The use case type.</typeparam>
@@ -48,6 +94,8 @@ public sealed class UseCasePipeline
     /// <param name="handler">The handler (not its pipeline).</param>
     /// <param name="cancellationToken">Stops the work.</param>
     /// <returns>The handler's result, or the failure validation or a filter returned.</returns>
+    /// <exception cref="InvalidOperationException">A filter returned a success without calling
+    /// <c>next</c>.</exception>
     public async Task<Result<TResult>> InvokeAsync<TUseCase, TResult>(
         TUseCase useCase,
         IUseCaseHandler<TUseCase, TResult> handler,
@@ -59,7 +107,7 @@ public sealed class UseCasePipeline
 
         if (await ValidateAsync(useCase, cancellationToken).ConfigureAwait(false) is { } invalid)
         {
-            return Result<TResult>.FromFailed(invalid);
+            return invalid;
         }
 
         if (_filters.Length == 0)
@@ -76,8 +124,8 @@ public sealed class UseCasePipeline
         return result switch
         {
             Result<TResult> typed => typed,
-            { IsSuccess: true } => throw SuccessWithoutHandler(handler),
-            _ => Result<TResult>.FromFailed(result),
+            { Error: { } error } => Result<TResult>.Failure(error),
+            _ => throw SuccessWithoutHandler(handler),
         };
     }
 
@@ -115,6 +163,28 @@ public sealed class UseCasePipeline
                 .ConfigureAwait(false)).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// A filter's own failure as the result of a handler declaring its errors, which accepts only
+    /// an ambient error or one of its set.
+    /// </summary>
+    private static Result<TResult, TError> FilterFailure<TResult, TError>(Error error, object handler)
+        where TError : struct, IUnion
+    {
+        try
+        {
+            return Result<TResult, TError>.Failure(error);
+        }
+        catch (ArgumentException exception)
+        {
+            throw new InvalidOperationException(
+                $"A use case filter failed {handler.GetType()} with {error.GetType().Name}, which "
+                + $"is neither an {nameof(AmbientError)} nor one of {typeof(TError).Name}'s "
+                + "errors. A filter stops with an ambient error (Unauthorized, Forbidden, "
+                + "Unavailable).",
+                exception);
+        }
+    }
+
     private static InvalidOperationException SuccessWithoutHandler(object handler) =>
         new(
             $"A use case filter returned a success without calling next for {handler.GetType()}, "
@@ -127,7 +197,7 @@ public sealed class UseCasePipeline
         CancellationToken cancellationToken) =>
         new(useCase, useCaseType, handler.GetType(), _services, cancellationToken);
 
-    private async ValueTask<Result?> ValidateAsync(IUseCase useCase, CancellationToken cancellationToken)
+    private async ValueTask<ValidationFailed?> ValidateAsync(IUseCase useCase, CancellationToken cancellationToken)
     {
         if (!_validation.Enabled)
         {
@@ -137,14 +207,7 @@ public sealed class UseCasePipeline
         IReadOnlyDictionary<string, string[]>? errors = await _validator
             .ValidateAsync(useCase, cancellationToken)
             .ConfigureAwait(false);
-        if (errors is null)
-        {
-            return null;
-        }
-
-        return _validation.FailureStatus == ResultStatus.Error
-            ? Result.Error(errors, _validation.FailureMessage)
-            : Result.Invalid(errors, _validation.FailureMessage);
+        return errors is null ? null : new ValidationFailed(errors);
     }
 
     private ValueTask<Result> RunFiltersAsync(

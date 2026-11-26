@@ -1,47 +1,39 @@
-// Atlas on the Hlibz stack. The use cases (Atlas.Application) hold every rule; this app only
-// binds HTTP to them, sends their Results, and documents what they check.
-// Run it and open http://localhost:5300/api-docs.
+// Atlas over HTTP. The use cases (Atlas.Application) hold every rule; this app only binds HTTP to
+// them and sends their results. Run it and try Atlas.Api.http.
 using Atlas.Application;
 using Atlas.Application.Cities;
 
-using Hlibz.MinimalApi.Endpoints;
-using Hlibz.OpenApi;
-using Hlibz.Redoc.Extensions;
 using Hlibz.Results.AspNetCore;
+
+using Microsoft.AspNetCore.Mvc;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 builder.Services.AddAtlasApplication();
 
-// One error body (ErrorResponse) for every failure, an invalid use case's included.
+// One error body (ErrorResponse) for every failure: the code, the message, and the error's data
+// as its details (an invalid use case's messages, keyed by field).
 builder.Services.AddResultErrorResponses();
 
-// Microsoft.AspNetCore.OpenApi builds the document again on every request; cache it instead.
-builder.Services.AddOutputCache();
-builder.Services.AddOpenApi("atlas", options => options
-    .AddXmlDocumentation()
-    .AddOpenApiRules()
-    .AddUseCases(useCases => useCases.ValidationResponseType = typeof(ErrorResponse))
-    .AddDescriptionCleanup());
-
 WebApplication app = builder.Build();
-app.UseOutputCache();
-app.MapOpenApi().CacheOutput();
 
-// Every endpoint returns its use case's Result as is; ErrorResponse is the documented error body.
-app.MapEndpoints(typeof(Program).Assembly, options => options
-    .UseErrorResponse<ErrorResponse>()
-    .ConfigureEndpoints(endpoint => endpoint.Builder.WithResultResponses()));
+// Each endpoint returns its handler's Result<CityDto, TError> as is: 200 with the city, or the
+// error's status (404 CityNotFound, 409 CityNameTaken, 400 ValidationFailed).
+RouteGroupBuilder cities = app.MapGroup("api/cities").WithResultResponses();
 
-// showExtensions makes each rule's x-rules list visible.
-app.MapReDocDocuments(
-    [new ReDocDocument("atlas", "Atlas")],
-    docs =>
-    {
-        docs.DefaultColorMode = ReDocColorMode.System;
-        docs.AdditionalConfigJson = """{ "showExtensions": ["x-rules"] }""";
-    });
+// [AsParameters] binds the use case from the route: GetCityQuery's [Range] is checked before the
+// handler runs.
+cities.MapGet(
+    "{id:int}",
+    ([AsParameters] GetCityQuery query, [FromServices] IGetCityQueryHandler handler, CancellationToken cancellationToken) =>
+        handler.HandleAsync(query, cancellationToken));
 
-app.MapGet("audit", (CityStore store) => store.AuditLog).ExcludeFromDescription();
-app.MapGet("/", () => Results.Redirect("/api-docs")).ExcludeFromDescription();
+// The use case is the body; a created city is a 201 with its location.
+cities.MapPost(
+        string.Empty,
+        (CreateCityCommand command, [FromServices] ICreateCityCommandHandler handler, CancellationToken cancellationToken) =>
+            handler.HandleAsync(command, cancellationToken))
+    .WithCreatedLocation<CityDto>(city => $"/api/cities/{city.Id}");
+
+app.MapGet("audit", ([FromServices] CityStore store) => store.AuditLog);
 
 await app.RunAsync();

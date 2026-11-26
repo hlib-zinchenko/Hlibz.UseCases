@@ -61,8 +61,55 @@ internal sealed class DeleteCityCommandHandler(CallLog log) : IDeleteCityCommand
     public Task<Result> HandleAsync(DeleteCityCommand useCase, CancellationToken cancellationToken = default)
     {
         log.Add("handler");
-        return Task.FromResult(useCase.Id == 404 ? Result.NotFound() : Result.Success());
+        return Task.FromResult(useCase.Id == 404 ? new CityNotFound(useCase.Id) : Result.Success());
     }
+}
+
+[Error("tests_1001", ResultStatus.NotFound, "The city doesn't exist.")]
+public sealed record CityNotFound(int CityId) : Error;
+
+[Error("tests_1002", ResultStatus.Conflict, "Another city has the name.")]
+public sealed record CityNameTaken(string Name) : Error;
+
+[Error("tests_1003", ResultStatus.Error, "An error no use case declares.")]
+public sealed record UndeclaredError : Error;
+
+// A union compiles to a struct without equality, which CA1815 flags.
+#pragma warning disable CA1815
+public union RenameCityError(CityNotFound, CityNameTaken);
+#pragma warning restore CA1815
+
+/// <summary>A use case declaring its errors: 404 is missing, "Lviv" is taken.</summary>
+public sealed record RenameCityCommand([Range(1, int.MaxValue)] int Id, [Required, MaxLength(10)] string Name) : IUseCase;
+
+public interface IRenameCityCommandHandler : IUseCaseHandler<RenameCityCommand, CityDto, RenameCityError>;
+
+internal sealed class RenameCityCommandHandler(CallLog log) : IRenameCityCommandHandler
+{
+    public Task<Result<CityDto, RenameCityError>> HandleAsync(
+        RenameCityCommand useCase,
+        CancellationToken cancellationToken = default)
+    {
+        log.Add("handler");
+        return Task.FromResult<Result<CityDto, RenameCityError>>(useCase switch
+        {
+            { Id: 404 } => new CityNotFound(useCase.Id),
+            { Name: "Lviv" } => new CityNameTaken(useCase.Name),
+            _ => new CityDto(useCase.Name),
+        });
+    }
+}
+
+/// <summary>A use case declaring its errors that returns no value.</summary>
+public sealed record ArchiveCityCommand(int Id) : IUseCase;
+
+internal sealed class ArchiveCityCommandHandler : IUseCaseHandler<ArchiveCityCommand, Unit, RenameCityError>
+{
+    public Task<Result<Unit, RenameCityError>> HandleAsync(
+        ArchiveCityCommand useCase,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<Result<Unit, RenameCityError>>(
+            useCase.Id == 404 ? new CityNotFound(useCase.Id) : Unit.Value);
 }
 
 /// <summary>A use case with nothing to validate, handled without an interface of its own.</summary>
@@ -113,7 +160,13 @@ internal sealed class SecondFilter(CallLog log) : IUseCaseFilter
 internal sealed class ForbiddingFilter : IUseCaseFilter
 {
     public ValueTask<Result> InvokeAsync(UseCaseContext context, UseCaseFilterDelegate next) =>
-        ValueTask.FromResult(Result.Forbidden("Not for you."));
+        ValueTask.FromResult<Result>(new Forbidden());
+}
+
+internal sealed class UndeclaredErrorFilter : IUseCaseFilter
+{
+    public ValueTask<Result> InvokeAsync(UseCaseContext context, UseCaseFilterDelegate next) =>
+        ValueTask.FromResult<Result>(new UndeclaredError());
 }
 
 internal sealed class SuccessWithoutNextFilter : IUseCaseFilter

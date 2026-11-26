@@ -7,7 +7,9 @@ Guidance for Claude Code when working in this repository.
 One NuGet package, `src/Hlibz.UseCases`, with its source generator `src/Hlibz.UseCases.Generators`
 packed inside it (`analyzers/dotnet/cs`, plus `buildTransitive/Hlibz.UseCases.targets` that adds it
 to an indirect consumer if the SDK hasn't). Use cases (`IUseCase`), handlers
-(`IUseCaseHandler<TUseCase[, TResult]>` returning Hlibz.Results' `Result`), a generated pipeline
+(`IUseCaseHandler<TUseCase, TResult, TError>` returning Hlibz.Results 3.0's `Result<TResult, TError>`,
+`TError` a C# 15 `union` of error types; `IUseCaseHandler<TUseCase[, TResult]>` returning
+`Result`/`Result<TResult>` for undeclared errors), a generated pipeline
 per handler (validation, `IUseCaseFilter`s, the handler) and self-describing rules
 (`IDescribedRule`, `RuleDescription`, `[RuleSummary]`). No ASP.NET Core dependency anywhere in `src`.
 `docs/VALIDATION_ENGINE_FINDINGS.md` records why validation is generated here rather than taken
@@ -27,14 +29,16 @@ How it fits together:
   `UseCaseRegistry` per service collection (also `IUseCaseCatalog`), found among the descriptors so
   repeated calls share it.
 - `UseCasePipeline` (scoped, public but `EditorBrowsable.Never`: generated code calls it) validates
-  through `IUseCaseValidator` → `Internal/ValidationEngine`, then runs the filters, then the
-  handler; a filter's failure becomes the handler's `Result<T>` through `FromFailed`.
+  through `IUseCaseValidator` → `Internal/ValidationEngine` (an invalid use case fails with the
+  ambient `ValidationFailed`), then runs the filters, then the handler; a filter's own failure
+  becomes the handler's result type through its `Failure`, and must be an `AmbientError` for a
+  handler declaring its errors (anything else throws `InvalidOperationException`).
+- `UseCaseDescriptor.ErrorSetType` (from `UseCaseRegistration`, written by the generator) is the
+  handler's `TError`, for adapters; `ErrorSetDescriptor.For` (Hlibz.Results) lists its errors.
 - `Internal/ValidationEngine` is a port of Microsoft.Extensions.Validation's rules (see its
   remarks): keep it in step, and keep `tests/Hlibz.UseCases.Tests/ParityTests.cs` green, which
   runs the same models through both engines. `Internal/RuleAttributes` reads property and record
   parameter attributes once, as that engine's `ValidationAttributeCache` does.
-- Async validation (`AsyncValidationAttribute`, `IAsyncValidatableObject`) exists only on .NET 11:
-  `#if NET11_0_OR_GREATER`.
 
 - The OpenAPI adapter, `Hlibz.OpenApi.UseCases`, lives in the
   [Hlibz.OpenApi](https://github.com/hlib-zinchenko/Hlibz.OpenApi) repository (a proof of concept
@@ -42,27 +46,28 @@ How it fits together:
   those is a change to it. The attribute is `[RuleSummary]`, not `[RuleText]`: that name would
   clash with Hlibz.OpenApi's `RuleText` class wherever both namespaces are in scope.
 
-- `samples/`: `Atlas.Application` (use cases, handlers, `AuditFilter`), `Atlas.Api` (the Hlibz
-  stack from NuGet: Endpoints, Results.AspNetCore, OpenApi.UseCases, ReDoc; port 5300,
-  `Atlas.Api.http`, `/api-docs`) and `Atlas.Console` (no ASP.NET Core; CI checks its runtime
-  config). net11.0 only, never packed. Keep `samples/README.md` in step. `Atlas.Api`'s build
-  writes `samples/Atlas.Api/openapi/Atlas.Api_atlas.json` (Microsoft.Extensions.ApiDescription.Server):
-  committed, and CI fails when a build changes it, so build before committing a change to the
-  sample or the use cases, or a bump of Hlibz.OpenApi.UseCases.
+- `samples/`: `Atlas.Application` (use cases, handlers declaring their errors in
+  `Cities/CityErrors.cs` and `Cities/CityErrorSets.cs`, `AuditFilter`), `Atlas.Api` (plain minimal
+  API endpoints and Hlibz.Results.AspNetCore, nothing else from Hlibz; port 5300,
+  `Atlas.Api.http`) and `Atlas.Console` (no ASP.NET Core; CI checks its runtime config). Never
+  packed. Keep `samples/README.md` in step. No OpenAPI here: Hlibz.Stack is where the packages
+  meet.
+
+Until the .NET 11 majors ship, `NuGet.config` adds the local folder feed `~/LocalNuGet`, where
+Hlibz.Results 3.0 previews are packed (`check-packed-generator.sh` adds it too, when it exists).
 
 ## Requires
 
-* The .NET SDK `global.json` pins (11.0.100, patches roll forward), plus the .NET 10 runtime to run
-  both test targets. Pinned because warnings are errors and `AnalysisMode=All`.
+* The .NET SDK `global.json` pins (11.0.100, patches roll forward). Pinned because warnings are
+  errors and `AnalysisMode=All`.
 
 ## Commands
 
 ```bash
 dotnet build
 dotnet test
-dotnet test -f net11.0
 dotnet pack -c Release -o ./artifacts
-.github/scripts/check-packed-generator.sh ./artifacts   # an indirect consumer of the nupkg, net10.0
+.github/scripts/check-packed-generator.sh ./artifacts   # an indirect consumer of the nupkg
 dotnet run --project samples/Atlas.Console -- create Lviv UA 717273
 dotnet run --project samples/Atlas.Api                  # :5300, try Atlas.Api.http
 ```
@@ -73,14 +78,18 @@ If you start `Atlas.Api`, stop it when you're done.
 
 StyleCop + Sonar + `AnalysisMode=All`, warnings as errors; every public member has XML docs.
 Explicit types, no `var`. The generator targets netstandard2.0 on Roslyn 4.8 (a low minimum: every
-SDK that builds net10.0 loads it). Generated code is fully qualified (`global::`), names types for
+SDK loads it), with its own pinned `LangVersion`. Generated code is fully qualified (`global::`), names types for
 `typeof` with `SymbolNames.TypeOf` and as type arguments with `SymbolNames.Argument` (nullable
 annotations and tuple names kept, so the pipeline matches the interface exactly). Tests: xUnit v3
 on Microsoft Testing Platform, named `Subject_WithCondition_ExpectedOutcome`; generator tests
 compile sources in memory (`GeneratorRun`) and fail on any compile warning in generated code.
+Roslyn 4.8 can't parse a `union`, so in-memory sources use error sets declared in the test
+assembly itself (`RenameError`), compiled by the SDK.
 
-Targets net10.0 and net11.0. Versions are central (`Directory.Packages.props`); the
-Microsoft.Extensions abstractions and Microsoft.CodeAnalysis.CSharp are minimums. Shared NuGet
+Targets net11.0 only, from 2.0 (Hlibz.Results 3.0's C# 15 unions); .NET 10 apps stay on 1.x.
+The Microsoft.Extensions abstractions it uses are in .NET 11's shared framework, so the package
+references none (NU1510). Versions are central (`Directory.Packages.props`); Hlibz.Results and
+Microsoft.CodeAnalysis.CSharp are minimums. Shared NuGet
 metadata and `Version` live in `Directory.Build.props`. The package has its own
 `src/Hlibz.UseCases/README.md` (packed, shown on nuget.org, absolute links only); the root
 `README.md` is the full documentation; keep them in step when an API changes. New diagnostics go in

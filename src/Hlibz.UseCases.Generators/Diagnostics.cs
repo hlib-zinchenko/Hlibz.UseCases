@@ -96,8 +96,9 @@ internal static class Diagnostics
             "https://github.com/hlib-zinchenko/Hlibz.UseCases#build-errors";
 
         public const string NotOneUseCaseText =
-            "{0} must implement exactly one IUseCaseHandler<TUseCase> or "
-            + "IUseCaseHandler<TUseCase, TResult>; it implements {1}";
+            "{0} must implement exactly one IUseCaseHandler<TUseCase>, "
+            + "IUseCaseHandler<TUseCase, TResult> or IUseCaseHandler<TUseCase, TResult, TError>; "
+            + "it implements {1}";
 
         public const string InaccessibleText =
             "{0} isn't accessible to the generated code; make it, and any type it is nested in, "

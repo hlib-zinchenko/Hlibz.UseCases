@@ -34,13 +34,17 @@ public sealed class UseCaseRegistration
     /// <param name="useCaseType">The use case type.</param>
     /// <param name="handlerType">The handler type.</param>
     /// <param name="resultType">
-    /// The handler's <c>TResult</c>, or <see langword="null"/> when it returns no value.
+    /// The handler's <c>TResult</c>, or <see langword="null"/> when it returns a plain result.
+    /// </param>
+    /// <param name="errorSetType">
+    /// The handler's <c>TError</c>, or <see langword="null"/> when it doesn't declare its errors.
     /// </param>
     /// <param name="register">Registers the handler and its pipeline.</param>
     public UseCaseRegistration(
         Type useCaseType,
         Type handlerType,
         Type? resultType,
+        Type? errorSetType,
         Action<IServiceCollection> register)
     {
         ArgumentNullException.ThrowIfNull(useCaseType);
@@ -50,6 +54,7 @@ public sealed class UseCaseRegistration
         UseCaseType = useCaseType;
         HandlerType = handlerType;
         ResultType = resultType;
+        ErrorSetType = errorSetType;
         Register = register;
     }
 
@@ -64,9 +69,15 @@ public sealed class UseCaseRegistration
     public Type HandlerType { get; }
 
     /// <summary>
-    /// Gets the handler's <c>TResult</c>, or <see langword="null"/> when it returns no value.
+    /// Gets the handler's <c>TResult</c>, or <see langword="null"/> when it returns a plain result.
     /// </summary>
     public Type? ResultType { get; }
+
+    /// <summary>
+    /// Gets the handler's <c>TError</c>, or <see langword="null"/> when it doesn't declare its
+    /// errors.
+    /// </summary>
+    public Type? ErrorSetType { get; }
 
     /// <summary>
     /// Gets the action that registers the handler and its pipeline.

@@ -27,6 +27,23 @@ public sealed class UseCaseManifestGeneratorTests
 
         """;
 
+    private const string Rename = """
+        namespace App;
+
+        using Hlibz.UseCases.Generators.Tests;
+
+        public sealed record RenameCommand([Required] string Name) : IUseCase;
+
+        public interface IRenameHandler : IUseCaseHandler<RenameCommand, Unit, RenameError>;
+
+        internal sealed class RenameHandler : IRenameHandler
+        {
+            public Task<Result<Unit, RenameError>> HandleAsync(RenameCommand useCase, CancellationToken cancellationToken = default) =>
+                Task.FromResult<Result<Unit, RenameError>>(useCase.Name == "taken" ? new NameTaken(useCase.Name) : Unit.Value);
+        }
+
+        """;
+
     private static CancellationToken Token => TestContext.Current.CancellationToken;
 
     [Fact]
@@ -51,8 +68,45 @@ public sealed class UseCaseManifestGeneratorTests
         await task;
         Result result = (Result)task.GetType().GetProperty("Result")!.GetValue(task)!;
 
-        Assert.Equal(ResultStatus.Invalid, result.Status);
-        Assert.Equal(["Name", "Costs[0].Value"], result.ValidationErrors!.Keys);
+        Assert.Equal(["Name", "Costs[0].Value"], Assert.IsType<ValidationFailed>(result.Error).Errors.Keys);
+    }
+
+    [Theory]
+    [InlineData("", typeof(ValidationFailed))]
+    [InlineData("taken", typeof(NameTaken))]
+    public async Task Generate_WithHandlerDeclaringErrors_RegistersItWrappedInPipeline(string name, Type expected)
+    {
+        GeneratorRun run = GeneratorRun.Of(Rename);
+
+        Assert.Empty(run.GeneratorDiagnostics);
+        Assembly assembly = run.Load();
+        ServiceCollection services = new();
+        services.AddUseCases([assembly]);
+        using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
+        using IServiceScope scope = provider.CreateScope();
+
+        object command = Activator.CreateInstance(assembly.GetType("App.RenameCommand")!, name)!;
+        object handler = scope.ServiceProvider.GetRequiredService(assembly.GetType("App.IRenameHandler")!);
+        Task task = (Task)handler.GetType().GetMethod("HandleAsync")!.Invoke(handler, [command, Token])!;
+        await task;
+        object result = task.GetType().GetProperty("Result")!.GetValue(task)!;
+
+        Assert.IsType<Result<Unit, RenameError>>(result);
+        Assert.IsType(expected, ((Result)result).Error);
+    }
+
+    [Fact]
+    public void Generate_WithHandlerDeclaringErrors_DescribesErrorSetInCatalog()
+    {
+        Assembly assembly = GeneratorRun.Of(Rename).Load();
+        ServiceCollection services = new();
+        services.AddUseCases([assembly]);
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        UseCaseDescriptor descriptor = Assert.Single(provider.GetRequiredService<IUseCaseCatalog>().UseCases);
+
+        Assert.Equal(typeof(Unit), descriptor.ResultType);
+        Assert.Equal(typeof(RenameError), descriptor.ErrorSetType);
     }
 
     [Fact]
@@ -68,6 +122,7 @@ public sealed class UseCaseManifestGeneratorTests
         Assert.Equal("App.CreateCityCommand", descriptor.UseCaseType.FullName);
         Assert.Equal("App.CreateCityCommandHandler", descriptor.HandlerType.FullName);
         Assert.Equal("App.CityDto", descriptor.ResultType!.FullName);
+        Assert.Null(descriptor.ErrorSetType);
         Assert.True(descriptor.CanFailValidation);
     }
 

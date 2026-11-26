@@ -1,30 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <!--
-      The HTTP client of Atlas's use cases, on the Hlibz stack: endpoints as classes
-      (Hlibz.MinimalApi.Endpoints), Results sent as responses with one error body
-      (Hlibz.Results.AspNetCore), an OpenAPI document that says what the use cases check
-      (Hlibz.OpenApi.AspNetCore + Hlibz.OpenApi.UseCases) and ReDoc to read it
-      (Hlibz.Redoc.AspNetCore).
-
-      Every build writes the document here (Atlas.Api_atlas.json), the same JSON
-      /openapi/atlas.json serves. Committed, and CI fails when it's stale.
+      The HTTP client of Atlas's use cases: plain minimal API endpoints that bind the use case and
+      return its result, which Hlibz.Results.AspNetCore sends as a response (one error body for
+      every failure, each error's data in its details).
   -->
-  <PropertyGroup>
-    <OpenApiDocumentsDirectory>$(MSBuildProjectDirectory)/openapi</OpenApiDocumentsDirectory>
-  </PropertyGroup>
-
   <ItemGroup>
-    <!--
-      Direct, as every app needs it: Microsoft.AspNetCore.OpenApi's XML comment generator is an
-      analyzer, and analyzers don't flow through a package reference.
-    -->
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
-    <PackageReference Include="Hlibz.MinimalApi.Endpoints" />
     <PackageReference Include="Hlibz.Results.AspNetCore" />
-    <PackageReference Include="Hlibz.Redoc.AspNetCore" />
-    <PackageReference Include="Hlibz.OpenApi.UseCases" />
-    <PackageReference Include="Microsoft.Extensions.ApiDescription.Server" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>

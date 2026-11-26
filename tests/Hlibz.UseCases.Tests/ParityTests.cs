@@ -90,16 +90,7 @@ public sealed class ParityTests : IDisposable
 
         // TypeRuleFirst's IValidatableObject always fails, naming no member: keyed "" at any depth.
         Assert.Equal(["RequiredFirst.Name", "ManyRules.Code", string.Empty], ours!.Keys);
-#if NET11_0_OR_GREATER
         Assert.Equal(Flatten(theirs), Flatten(ours));
-#else
-        // .NET 10's engine hands a nested attribute the root object as ValidationContext's
-        // ObjectInstance, so [Compare] on a nested object looks for its other property on the root
-        // and fails. .NET 11 hands it the object the property belongs to, as this package does.
-        Assert.Equal(
-            [.. Flatten(ours), "Passwords.Confirm => Could not find a property named Password."],
-            Flatten(theirs));
-#endif
     }
 
     public void Dispose() => _provider.Dispose();
@@ -114,7 +105,6 @@ public sealed class ParityTests : IDisposable
         IServiceProvider services)
     {
         ValidationOptions options = services.GetRequiredService<IOptions<ValidationOptions>>().Value;
-#if NET11_0_OR_GREATER
         Assert.True(options.TryGetValidatableTypeInfo(model.GetType(), out IValidatableTypeInfo? info));
         ValidateContext context = new() { ValidationOptions = options, ServiceProvider = services };
         await info.ValidateAsync(model, context, TestContext.Current.CancellationToken);
@@ -124,15 +114,5 @@ public sealed class ParityTests : IDisposable
                 pair => pair.Key,
                 pair => pair.Value.Select(error => error.ErrorMessage).ToArray(),
                 StringComparer.Ordinal);
-#else
-        Assert.True(options.TryGetValidatableTypeInfo(model.GetType(), out IValidatableInfo? info));
-        ValidateContext context = new()
-        {
-            ValidationOptions = options,
-            ValidationContext = new ValidationContext(model, services, items: null),
-        };
-        await info.ValidateAsync(model, context, TestContext.Current.CancellationToken);
-        return context.ValidationErrors is not { Count: > 0 } errors ? null : errors;
-#endif
     }
 }

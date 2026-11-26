@@ -1,3 +1,3 @@
 namespace Atlas.Application.Cities;
 
-public interface IGetCityQueryHandler : IUseCaseHandler<GetCityQuery, CityDto>;
+public interface IGetCityQueryHandler : IUseCaseHandler<GetCityQuery, CityDto, GetCityError>;

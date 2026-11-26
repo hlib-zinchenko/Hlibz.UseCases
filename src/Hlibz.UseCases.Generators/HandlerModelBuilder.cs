@@ -68,7 +68,8 @@ internal static class HandlerModelBuilder
 
         INamedTypeSymbol handler = handled[0];
         ITypeSymbol useCase = handler.TypeArguments[0];
-        ITypeSymbol? result = handler.TypeArguments.Length == 2 ? handler.TypeArguments[1] : null;
+        ITypeSymbol? result = handler.TypeArguments.Length > 1 ? handler.TypeArguments[1] : null;
+        ITypeSymbol? error = handler.TypeArguments.Length > 2 ? handler.TypeArguments[2] : null;
         INamedTypeSymbol[] own =
         [
             .. type.AllInterfaces.Where(candidate =>
@@ -80,6 +81,7 @@ internal static class HandlerModelBuilder
         List<DiagnosticInfo> diagnostics = [];
         IEnumerable<ITypeSymbol> named = new ITypeSymbol[] { type, useCase }
             .Concat(result is null ? [] : [result])
+            .Concat(error is null ? [] : [error])
             .Concat(own);
         foreach (ITypeSymbol item in named.Where(item => !compilation.IsSymbolAccessibleWithin(item, compilation.Assembly)))
         {
@@ -105,6 +107,8 @@ internal static class HandlerModelBuilder
             useCase.ToDisplayString(SymbolNames.Argument),
             result?.ToDisplayString(SymbolNames.TypeOf),
             result?.ToDisplayString(SymbolNames.Argument),
+            error?.ToDisplayString(SymbolNames.TypeOf),
+            error?.ToDisplayString(SymbolNames.Argument),
             new EquatableArray<string>([.. own.Select(item => item.ToDisplayString(SymbolNames.Argument))]),
             locationInfo,
             new EquatableArray<DiagnosticInfo>([.. diagnostics]),
@@ -124,6 +128,8 @@ internal static class HandlerModelBuilder
             string.Empty,
             ResultName: null,
             ResultArgument: null,
+            ErrorName: null,
+            ErrorArgument: null,
             new EquatableArray<string>([]),
             location,
             new EquatableArray<DiagnosticInfo>([diagnostic]),
@@ -136,11 +142,13 @@ internal static class HandlerModelBuilder
     {
         INamedTypeSymbol? plain = compilation.GetTypeByMetadataName(SymbolNames.Handler);
         INamedTypeSymbol? withResult = compilation.GetTypeByMetadataName(SymbolNames.HandlerWithResult);
+        INamedTypeSymbol? withErrors = compilation.GetTypeByMetadataName(SymbolNames.HandlerWithErrors);
         return
         [
             .. type.AllInterfaces.Where(item =>
                 SymbolEqualityComparer.Default.Equals(item.OriginalDefinition, plain)
-                || SymbolEqualityComparer.Default.Equals(item.OriginalDefinition, withResult)),
+                || SymbolEqualityComparer.Default.Equals(item.OriginalDefinition, withResult)
+                || SymbolEqualityComparer.Default.Equals(item.OriginalDefinition, withErrors)),
         ];
     }
 

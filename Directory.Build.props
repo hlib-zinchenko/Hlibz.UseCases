@@ -2,19 +2,12 @@
 
     <PropertyGroup>
         <!--
-            net10.0 and up only, like the other Hlibz packages: the runtime and its generated code
-            use only the BCL's System.ComponentModel.DataAnnotations and the Microsoft.Extensions
-            abstractions, but nothing older is tested.
+            net11.0 only, from 2.0: handlers return Hlibz.Results 3.0's Result<T, TError>, whose
+            error sets are C# 15 unions. .NET 10 apps stay on Hlibz.UseCases 1.x.
         -->
-        <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
+        <TargetFrameworks>net11.0</TargetFrameworks>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <!--
-            One language version for every target framework, pinned rather than "latest" so the
-            build doesn't change with the installed SDK. C# 14 so the net10.0 target compiles from
-            the same source as net11.0.
-        -->
-        <LangVersion>14</LangVersion>
         <AnalysisMode>All</AnalysisMode>
         <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -34,7 +27,7 @@
 
     <!-- NuGet metadata shared by every package; each csproj sets its own PackageId, Description and tags. -->
     <PropertyGroup Label="NuGet metadata">
-        <Version>1.0.0</Version>
+        <Version>2.0.0-preview.1</Version>
         <Authors>Hlib Zinchenko</Authors>
         <Copyright>Copyright (c) 2026 Hlib Zinchenko</Copyright>
         <PackageReleaseNotes>https://github.com/hlib-zinchenko/Hlibz.UseCases/releases</PackageReleaseNotes>

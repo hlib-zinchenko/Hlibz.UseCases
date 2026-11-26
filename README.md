@@ -11,8 +11,9 @@ jobs all call the same handler, and every rule lives in the use case: its valida
 as DataAnnotations on the use case record itself.
 
 - **Contracts:** a record implementing `IUseCase`, a handler implementing
-  `IUseCaseHandler<TUseCase, TResult>` and returning a
-  [Hlibz.Results](https://www.nuget.org/packages/Hlibz.Results) `Result`.
+  `IUseCaseHandler<TUseCase, TResult, TError>` and returning a
+  [Hlibz.Results](https://www.nuget.org/packages/Hlibz.Results) `Result<TResult, TError>`: the
+  value, or one of the errors it declares, each a type with its own data.
 - **No scanning:** a source generator lists the handlers at compile time and reports one it can't
   register as a build error.
 - **A pipeline per handler,** generated: validation, then your filters, then the handler. Clients
@@ -22,7 +23,7 @@ as DataAnnotations on the use case record itself.
 - **Rules that describe themselves** (`IDescribedRule`, `[RuleSummary]`), for an OpenAPI document or
   a tool schema to publish.
 
-Targets .NET 10 and 11.
+Targets .NET 11 (C# 15 unions). .NET 10 apps stay on 1.x.
 
 ```bash
 dotnet add package Hlibz.UseCases
@@ -40,14 +41,27 @@ public sealed record CreateCityCommand(
 
 public sealed record District([Required] string Name, [Range(0, 10_000_000)] int Population);
 
-public interface ICreateCityCommandHandler : IUseCaseHandler<CreateCityCommand, CityDto>;
+[Error("atlas_1002", ResultStatus.Conflict, "The country already has a city by that name.")]
+public sealed record CityNameTaken(int CityId) : Error;
+
+public union CreateCityError(CityNameTaken);
+
+public interface ICreateCityCommandHandler : IUseCaseHandler<CreateCityCommand, CityDto, CreateCityError>;
 
 internal sealed class CreateCityCommandHandler(AtlasDbContext db) : ICreateCityCommandHandler
 {
-    public async Task<Result<CityDto>> HandleAsync(CreateCityCommand useCase, CancellationToken cancellationToken = default)
+    public async Task<Result<CityDto, CreateCityError>> HandleAsync(
+        CreateCityCommand useCase,
+        CancellationToken cancellationToken = default)
     {
         // Only valid use cases get here.
+        if (await db.Cities.FirstOrDefaultAsync(city => city.Name == useCase.Name, cancellationToken) is { } namesake)
+        {
+            return new CityNameTaken(namesake.Id);
+        }
+
         ...
+        return city.ToDto();
     }
 }
 ```
@@ -69,21 +83,52 @@ public static async Task<CallToolResult> CreateCityAsync(ICreateCityCommandHandl
 An invalid use case never reaches the handler:
 
 ```csharp
-Result<CityDto> result = await handler.HandleAsync(new CreateCityCommand("", 0, [new District("Podil", -1)]));
-// result.Status           Invalid
-// result.ValidationErrors { "Name": [...], "Population": [...], "Districts[0].Population": [...] }
+Result<CityDto, CreateCityError> result = await handler.HandleAsync(new CreateCityCommand("", 0, [new District("Podil", -1)]));
+// result.Error  ValidationFailed { Errors = { "Name": [...], "Population": [...], "Districts[0].Population": [...] } }
+```
+
+A client switches over the errors the handler declares, exhaustively:
+
+```csharp
+string text = result.DeclaredError switch
+{
+    CityNameTaken taken => $"City {taken.CityId} already has that name.",
+    null => result.IsSuccess ? "Created." : "Rejected by validation or a filter.",
+};
 ```
 
 ## Use cases and handlers
 
 A use case is a record implementing `IUseCase`: ids and plain values, never a data model. Its
-handler implements `IUseCaseHandler<TUseCase, TResult>` (or `IUseCaseHandler<TUseCase>` for one
-that returns no value) and returns a `Result`: expected failures are results, never exceptions.
-Give each handler an empty interface of its own and inject that in clients:
+handler returns a `Result`: expected failures are results, never exceptions. Which interface it
+implements says what it returns:
+
+| Handler | Returns | Fails with |
+|---|---|---|
+| `IUseCaseHandler<TUseCase, TResult, TError>` | `Result<TResult, TError>`; `TResult` is `Unit` for no value | an error of `TError`, or an ambient one |
+| `IUseCaseHandler<TUseCase, TResult>` | `Result<TResult>` | any error, undeclared |
+| `IUseCaseHandler<TUseCase>` | `Result` | any error, undeclared |
+
+`TError` is an error set: a C# `union` of
+[Hlibz.Results](https://www.nuget.org/packages/Hlibz.Results) error types, each a `sealed record`
+with an `[Error(code, status, message)]` and the data a client needs to act on it. Declare the
+errors whenever a use case has any of its own: clients switch over them exhaustively, and
+documentation lists each one with its data. The ambient errors (`ValidationFailed`,
+`Unauthorized`, `Forbidden`, `Unavailable`) are never declared; the pipeline and filters add them.
 
 ```csharp
-public interface IDeleteCityCommandHandler : IUseCaseHandler<DeleteCityCommand>;
+[Error("atlas_1001", ResultStatus.NotFound, "The city doesn't exist.")]
+public sealed record CityNotFound(int CityId) : Error;
+
+[Error("atlas_1003", ResultStatus.Conflict, "The city is used by user profiles.")]
+public sealed record CityInUse(IReadOnlyList<int> UserIds) : Error;
+
+public union DeleteCityError(CityNotFound, CityInUse);
+
+public interface IDeleteCityCommandHandler : IUseCaseHandler<DeleteCityCommand, Unit, DeleteCityError>;
 ```
+
+Give each handler an empty interface of its own, as above, and inject that in clients.
 
 `services.AddUseCases(assemblies)` registers every handler of those assemblies, **scoped**, wrapped
 in its pipeline, under its own interface(s), the closed `IUseCaseHandler<...>` and the marker
@@ -99,9 +144,9 @@ using IServiceScope scope = provider.CreateScope();
 _ = scope.ServiceProvider.GetServices<IUseCaseHandler>().ToList();
 ```
 
-`IUseCaseCatalog` (a singleton) lists the registered use cases: type, handler, result type and
-whether it can fail validation, for adapters that describe them (an OpenAPI document, MCP tool
-schemas).
+`IUseCaseCatalog` (a singleton) lists the registered use cases: type, handler, result type, error
+set (`ErrorSetType`; `ErrorSetDescriptor.For(type).ErrorTypes` lists its errors) and whether it can
+fail validation, for adapters that describe them (an OpenAPI document, MCP tool schemas).
 
 ## Validation
 
@@ -114,14 +159,15 @@ way ASP.NET Core's validation (Microsoft.Extensions.Validation) does, with none 
   `Household.Adults`, `Costs[0].Value`.
 - Then, only when every property passed, the **type's own attributes**, and only when those passed
   too, **`IValidatableObject`**.
-- On .NET 11, `AsyncValidationAttribute`s (after the synchronous ones pass) and
-  `IAsyncValidatableObject`.
+- `AsyncValidationAttribute`s (after the synchronous ones pass) and `IAsyncValidatableObject`.
 - `[Display(Name = "...")]` names the field in messages; without it, `DisplayNamePolicy` (see
   options) can name it as your clients do: `The first_name field is required.`
 
-An invalid use case returns `Result.Invalid(errors)` (or `Result.Error(errors)`, see options)
-keyed by property path. [Hlibz.Results.AspNetCore](https://www.nuget.org/packages/Hlibz.Results.AspNetCore)
-sends it as `400` with the keys in your JSON naming (`districts[0].population`).
+An invalid use case fails with Hlibz.Results' ambient `ValidationFailed`, its messages keyed by
+property path, whatever errors the handler declares.
+[Hlibz.Results.AspNetCore](https://www.nuget.org/packages/Hlibz.Results.AspNetCore) sends it as
+`400` (or `422`, if you tell validation apart) with the keys in your JSON naming
+(`districts[0].population`).
 
 There is nothing to mark and nothing to call per assembly: every type a use case reaches through
 its public properties is validated, and the generator writes the tables the validation walks (no
@@ -130,8 +176,6 @@ reflection to read values; attributes are read once each and cached).
 ```csharp
 builder.Services.AddUseCases([typeof(CreateCityCommand).Assembly], options =>
 {
-    options.Validation.FailureStatus = ResultStatus.Error; // Invalid by default
-    options.Validation.FailureMessage = "Check the fields.";
     options.Validation.MaxDepth = 32;                      // a circular reference throws past it
     options.Validation.DisplayNamePolicy = JsonNamingPolicy.SnakeCaseLower; // names in messages
     options.Validation.Enabled = true;
@@ -148,9 +192,6 @@ check input early.
   `[Display]` as declared, which is also the default here. Keys are property paths either way.
 - Asynchronous attributes run one at a time, stopping at the first failure, rather than
   concurrently.
-- On .NET 10, ASP.NET Core's engine passes a nested attribute the *root* object as
-  `ValidationContext.ObjectInstance`, so `[Compare]` on a nested object fails there. This package
-  passes the object the property belongs to, as .NET 11 does.
 - An `IValidatableObject` result naming no member is keyed `""` wherever the object sits, as there.
 
 ## Filters
@@ -165,15 +206,17 @@ public sealed class AuditFilter(IAuditLog log) : IUseCaseFilter
     public async ValueTask<Result> InvokeAsync(UseCaseContext context, UseCaseFilterDelegate next)
     {
         Result result = await next(context);
-        log.Write(context.UseCaseType.Name, result.Status);
+        log.Write(context.UseCaseType.Name, result.Error?.Code ?? "success");
         return result;
     }
 }
 ```
 
-A filter sees the plain `Result`. It continues with `next`, or stops with a failure of its own
-(`Result.Forbidden()`), which the pipeline turns into the handler's `Result<T>`. A success without
-calling `next` throws: there would be no value. `UseCaseContext` carries the use case, its declared
+A filter sees the plain `Result`. It continues with `next`, or stops with a failure of its own,
+which the pipeline turns into the handler's result type. That failure is an ambient error
+(`new Forbidden()`, `new Unauthorized()`, `new Unavailable()`): a handler declaring its errors
+accepts no other, so any other error from a filter throws for it. A success without calling
+`next` throws too: there would be no value. `UseCaseContext` carries the use case, its declared
 type, the handler type, the scope's services and the cancellation token. Authorization by an
 attribute on the use case, logging and transactions are typical filters.
 
@@ -231,14 +274,18 @@ builder.Services.AddOpenApi("atlas", options => options
 
 Rules reach the document only on types that are part of the HTTP contract: bind the use case
 itself (as the body, or with `[AsParameters]`), or give it a record that is also the body
-(`UpdateCityCommand(int Id, CityChanges Changes)`). `samples/Atlas.Api` shows the whole stack.
+(`UpdateCityCommand(int Id, CityChanges Changes)`). A handler's declared errors reach it through
+the endpoint's return type (`Result<CityDto, CreateCityError>`), which
+[Hlibz.OpenApi.Results](https://www.nuget.org/packages/Hlibz.OpenApi.Results) documents, each
+error with its data. [Hlibz.Stack](https://github.com/hlib-zinchenko/Hlibz.Stack) shows them
+together.
 
 ## Build errors
 
 | Id | Severity | When |
 |---|---|---|
 | HUC001 | Error | A handler doesn't implement exactly one `IUseCaseHandler<...>`. |
-| HUC002 | Error | A handler, its use case, result or interface isn't accessible to the generated code (a `private` nested type). |
+| HUC002 | Error | A handler, its use case, result, error set or interface isn't accessible to the generated code (a `private` nested type). |
 | HUC003 | Warning | A generic handler is never registered; make it `abstract` if it is a base. |
 | HUC004 | Error | A handler's own interface declares members; the generated pipeline only implements `HandleAsync`. |
 | HUC005 | Error | Two handlers in one assembly handle the same use case. |
@@ -255,19 +302,21 @@ itself (as the body, or with `[AsParameters]`), or give it a record that is also
 
 ## Sample
 
-[`samples`](samples/README.md): one `Atlas.Application` library with the use cases, an API on the
-Hlibz stack (`Atlas.Api`: Hlibz.MinimalApi.Endpoints, Hlibz.Results.AspNetCore,
-Hlibz.OpenApi.AspNetCore with Hlibz.OpenApi.UseCases, Hlibz.Redoc.AspNetCore) and a console host
+[`samples`](samples/README.md): one `Atlas.Application` library with the use cases and their
+declared errors, a minimal API (`Atlas.Api`, with Hlibz.Results.AspNetCore) and a console host
 (`Atlas.Console`, no ASP.NET Core) running them.
 
 ## Related packages
 
-- [Hlibz.Results](https://www.nuget.org/packages/Hlibz.Results): the `Result` types handlers return,
-  and [Hlibz.Results.AspNetCore](https://www.nuget.org/packages/Hlibz.Results.AspNetCore) to send
-  them as HTTP responses.
+- [Hlibz.Results](https://www.nuget.org/packages/Hlibz.Results): the `Result` types handlers return
+  and the errors they declare, and
+  [Hlibz.Results.AspNetCore](https://www.nuget.org/packages/Hlibz.Results.AspNetCore) to send them
+  as HTTP responses.
 - [Hlibz.OpenApi.UseCases](https://www.nuget.org/packages/Hlibz.OpenApi.UseCases): use cases in
   OpenAPI documents, on the
-  [Hlibz.OpenApi.AspNetCore](https://www.nuget.org/packages/Hlibz.OpenApi.AspNetCore) transformers.
+  [Hlibz.OpenApi.AspNetCore](https://www.nuget.org/packages/Hlibz.OpenApi.AspNetCore) transformers;
+  [Hlibz.OpenApi.Results](https://www.nuget.org/packages/Hlibz.OpenApi.Results) documents the
+  declared errors.
 - [Hlibz.Redoc.AspNetCore](https://www.nuget.org/packages/Hlibz.Redoc.AspNetCore): ReDoc for those
   documents, served from the app.
 - [Hlibz.MinimalApi.Endpoints](https://www.nuget.org/packages/Hlibz.MinimalApi.Endpoints): minimal
@@ -275,7 +324,11 @@ Hlibz.OpenApi.AspNetCore with Hlibz.OpenApi.UseCases, Hlibz.Redoc.AspNetCore) an
 
 ## Versioning
 
-Every package in this repository is released under one version, from one `vX.Y.Z` tag.
+Every package in this repository is released under one version, from one `vX.Y.Z` tag. 2.0 moves
+to .NET 11 and Hlibz.Results 3.0: handlers can declare their errors
+(`IUseCaseHandler<TUseCase, TResult, TError>`), an invalid use case fails with `ValidationFailed`,
+and `UseCaseValidationOptions.FailureStatus` and `FailureMessage` are gone (the error carries its
+status; the HTTP layer picks `400` or `422`).
 
 Release notes: [GitHub Releases](https://github.com/hlib-zinchenko/Hlibz.UseCases/releases).
 

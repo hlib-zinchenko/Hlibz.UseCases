@@ -22,9 +22,8 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          # The SDK global.json pins, plus the .NET 10 runtime the net10.0 tests run on.
+          # The SDK global.json pins.
           global-json-file: global.json
-          dotnet-version: 10.0.x
 
       - name: Restore
         run: dotnet restore
@@ -34,10 +33,6 @@ jobs:
 
       - name: Test
         run: dotnet test --no-build --configuration Release
-
-      # The build wrote the sample's OpenAPI document; the committed one must match.
-      - name: Sample OpenAPI document is up to date
-        run: git diff --exit-code samples/Atlas.Api/openapi
 
       # The second client must run without ASP.NET Core: the point of keeping use cases apart.
       - name: Console sample has no ASP.NET Core

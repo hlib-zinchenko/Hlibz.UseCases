@@ -36,11 +36,17 @@ public sealed class RegistrationTests
         IUseCaseCatalog catalog = provider.GetRequiredService<IUseCaseCatalog>();
 
         Assert.Equal(
-            new UseCaseDescriptor(typeof(CreateCityCommand), typeof(CreateCityCommandHandler), typeof(CityDto), CanFailValidation: true),
+            new UseCaseDescriptor(typeof(CreateCityCommand), typeof(CreateCityCommandHandler), typeof(CityDto), ErrorSetType: null, CanFailValidation: true),
             catalog.Find(typeof(CreateCityCommand)));
         Assert.Equal(
-            new UseCaseDescriptor(typeof(DeleteCityCommand), typeof(DeleteCityCommandHandler), ResultType: null, CanFailValidation: true),
+            new UseCaseDescriptor(typeof(DeleteCityCommand), typeof(DeleteCityCommandHandler), ResultType: null, ErrorSetType: null, CanFailValidation: true),
             catalog.Find(typeof(DeleteCityCommand)));
+        Assert.Equal(
+            new UseCaseDescriptor(typeof(RenameCityCommand), typeof(RenameCityCommandHandler), typeof(CityDto), typeof(RenameCityError), CanFailValidation: true),
+            catalog.Find(typeof(RenameCityCommand)));
+        Assert.Equal(
+            new UseCaseDescriptor(typeof(ArchiveCityCommand), typeof(ArchiveCityCommandHandler), typeof(Unit), typeof(RenameCityError), CanFailValidation: false),
+            catalog.Find(typeof(ArchiveCityCommand)));
         Assert.False(catalog.Find(typeof(PingQuery))!.CanFailValidation);
         Assert.Null(catalog.Find(typeof(string)));
     }
@@ -70,11 +76,11 @@ public sealed class RegistrationTests
     }
 
     [Fact]
-    public void BuildProvider_WithInvalidFailureStatus_FailsOnFirstUse()
+    public void BuildProvider_WithZeroMaxDepth_FailsOnFirstUse()
     {
         using ServiceProvider provider = Services.Build(services => services.AddUseCases(
             [],
-            options => options.Validation.FailureStatus = ResultStatus.NotFound));
+            options => options.Validation.MaxDepth = 0));
         using IServiceScope scope = provider.CreateScope();
 
         Assert.Throws<Microsoft.Extensions.Options.OptionsValidationException>(
