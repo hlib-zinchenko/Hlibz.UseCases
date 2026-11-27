@@ -5,6 +5,7 @@
 [![CI](https://github.com/hlib-zinchenko/Hlibz.UseCases/actions/workflows/ci.yml/badge.svg)](https://github.com/hlib-zinchenko/Hlibz.UseCases/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/hlib-zinchenko/Hlibz.UseCases/blob/main/LICENSE)<br>
 [![Hlibz.UseCases](https://img.shields.io/nuget/v/Hlibz.UseCases?label=Hlibz.UseCases)](https://www.nuget.org/packages/Hlibz.UseCases)
+[![downloads](https://img.shields.io/nuget/dt/Hlibz.UseCases?label=downloads)](https://www.nuget.org/packages/Hlibz.UseCases)
 
 Use cases for .NET apps with more than one client. HTTP endpoints, MCP tools, gRPC services and
 jobs all call the same handler, and every rule lives in the use case: its validation too, written
@@ -96,6 +97,28 @@ string text = result.DeclaredError switch
     null => result.IsSuccess ? "Created." : "Rejected by validation or a filter.",
 };
 ```
+
+## A family of packages
+
+Hlibz.UseCases is one of five packages I build to set up new .NET APIs the way I want them:
+[Hlibz.Results](https://github.com/hlib-zinchenko/Hlibz.Results), **Hlibz.UseCases**,
+[Hlibz.MinimalApi.Endpoints](https://github.com/hlib-zinchenko/Hlibz.MinimalApi.Endpoints),
+[Hlibz.OpenApi](https://github.com/hlib-zinchenko/Hlibz.OpenApi) and
+[Hlibz.Paging](https://github.com/hlib-zinchenko/Hlibz.Paging). Each one works on its own, and they
+work best together: [Hlibz.Stack](https://github.com/hlib-zinchenko/Hlibz.Stack) is an API where all
+five meet, along with [Hlibz.Redoc](https://github.com/hlib-zinchenko/Hlibz.Redoc) and
+[Hlibz.McpDocs.AspNetCore](https://github.com/hlib-zinchenko/Hlibz.McpDocs.AspNetCore).
+
+Because they follow what my projects need, new minor and major versions come often. When .NET gives
+me a better way to do something, it goes into a new major straight away: Hlibz.Results 2.0 came a
+week after 1.0, and the first 3.0 preview, built on C# 15 unions, nine days after 2.0. Breaking
+changes only ever come in a major, its
+[release notes](https://github.com/hlib-zinchenko/Hlibz.UseCases/releases) list them first, and
+older versions stay on NuGet, so read the notes before you move up a major.
+
+You're welcome to use them, and to
+[open an issue](https://github.com/hlib-zinchenko/Hlibz.UseCases/issues) when something is wrong or
+missing.
 
 ## Use cases and handlers
 
@@ -300,34 +323,23 @@ together.
 - The package is marked AOT-compatible. Validation reads property values through generated
   delegates and attributes through reflection on the types the generator names (kept by trimming).
 
-## Sample
+## Samples
 
-[`samples`](samples/README.md): one `Atlas.Application` library with the use cases and their
+[`samples/`](samples/README.md): one `Atlas.Application` library with the use cases and their
 declared errors, a minimal API (`Atlas.Api`, with Hlibz.Results.AspNetCore) and a console host
 (`Atlas.Console`, no ASP.NET Core) running them.
 
-## Related packages
-
-- [Hlibz.Results](https://www.nuget.org/packages/Hlibz.Results): the `Result` types handlers return
-  and the errors they declare, and
-  [Hlibz.Results.AspNetCore](https://www.nuget.org/packages/Hlibz.Results.AspNetCore) to send them
-  as HTTP responses.
-- [Hlibz.OpenApi.UseCases](https://www.nuget.org/packages/Hlibz.OpenApi.UseCases): use cases in
-  OpenAPI documents, on the
-  [Hlibz.OpenApi.AspNetCore](https://www.nuget.org/packages/Hlibz.OpenApi.AspNetCore) transformers;
-  [Hlibz.OpenApi.Results](https://www.nuget.org/packages/Hlibz.OpenApi.Results) documents the
-  declared errors.
-- [Hlibz.Redoc.AspNetCore](https://www.nuget.org/packages/Hlibz.Redoc.AspNetCore): ReDoc for those
-  documents, served from the app.
-- [Hlibz.MinimalApi.Endpoints](https://www.nuget.org/packages/Hlibz.MinimalApi.Endpoints): minimal
-  API endpoints as classes, a natural HTTP client for use cases.
+```bash
+dotnet run --project samples/Atlas.Api                                # http://localhost:5300
+dotnet run --project samples/Atlas.Console -- create Lviv UA 717273
+```
 
 ## Versioning
 
-Every package in this repository is released under one version, from one `vX.Y.Z` tag. 2.0 moves
-to .NET 11 and Hlibz.Results 3.0: handlers can declare their errors
-(`IUseCaseHandler<TUseCase, TResult, TError>`), an invalid use case fails with `ValidationFailed`,
-and `UseCaseValidationOptions.FailureStatus` and `FailureMessage` are gone (the error carries its
+Every package in this repository is released under one version, from one `vX.Y.Z` tag. 2.0 moves to
+.NET 11 and Hlibz.Results 3.0: handlers can declare their errors (`IUseCaseHandler<TUseCase,
+TResult, TError>`), an invalid use case fails with `ValidationFailed`, and
+`UseCaseValidationOptions.FailureStatus` and `FailureMessage` are gone (the error carries its
 status; the HTTP layer picks `400` or `422`).
 
 Release notes: [GitHub Releases](https://github.com/hlib-zinchenko/Hlibz.UseCases/releases).
