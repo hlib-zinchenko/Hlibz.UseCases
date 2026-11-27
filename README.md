@@ -137,7 +137,8 @@ implements says what it returns:
 with an `[Error(code, status, message)]` and the data a client needs to act on it. Declare the
 errors whenever a use case has any of its own: clients switch over them exhaustively, and
 documentation lists each one with its data. The ambient errors (`ValidationFailed`,
-`Unauthorized`, `Forbidden`, `Unavailable`) are never declared; the pipeline and filters add them.
+`Unauthorized`, `Forbidden`, `ConcurrencyConflict`, `RateLimited`, `Unavailable`) are never
+declared; the pipeline and filters add them.
 
 ```csharp
 [Error("atlas_1001", ResultStatus.NotFound, "The city doesn't exist.")]
@@ -236,9 +237,10 @@ public sealed class AuditFilter(IAuditLog log) : IUseCaseFilter
 ```
 
 A filter sees the plain `Result`. It continues with `next`, or stops with a failure of its own,
-which the pipeline turns into the handler's result type. That failure is an ambient error
-(`new Forbidden()`, `new Unauthorized()`, `new Unavailable()`): a handler declaring its errors
-accepts no other, so any other error from a filter throws for it. A success without calling
+which the pipeline turns into the handler's result type, also after calling `next`. That failure
+is an ambient error (`new Forbidden()`, `new Unauthorized()`, `new Unavailable()`, or
+`new ConcurrencyConflict()` from a transaction filter whose save found the data changed): a
+handler declaring its errors accepts no other, so any other error from a filter throws for it. A success without calling
 `next` throws too: there would be no value. `UseCaseContext` carries the use case, its declared
 type, the handler type, the scope's services and the cancellation token. Authorization by an
 attribute on the use case, logging and transactions are typical filters.

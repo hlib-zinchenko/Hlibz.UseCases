@@ -163,6 +163,16 @@ internal sealed class ForbiddingFilter : IUseCaseFilter
         ValueTask.FromResult<Result>(new Forbidden());
 }
 
+internal sealed class ConflictingSaveFilter(CallLog log) : IUseCaseFilter
+{
+    public async ValueTask<Result> InvokeAsync(UseCaseContext context, UseCaseFilterDelegate next)
+    {
+        Result result = await next(context);
+        log.Add($"saving:{result.Status}");
+        return result.IsSuccess ? new ConcurrencyConflict() : result;
+    }
+}
+
 internal sealed class UndeclaredErrorFilter : IUseCaseFilter
 {
     public ValueTask<Result> InvokeAsync(UseCaseContext context, UseCaseFilterDelegate next) =>

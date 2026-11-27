@@ -10,9 +10,10 @@ namespace Hlibz.UseCases;
 /// A filter sees the plain <see cref="Result"/>. It continues by calling <c>next</c> (and may
 /// look at what comes back), or stops by returning a failure of its own, which the pipeline turns
 /// into the handler's result type. That failure is an <see cref="AmbientError"/>
-/// (<see cref="Unauthorized"/>, <see cref="Forbidden"/>, <see cref="Unavailable"/>), since a
-/// handler that declares its errors accepts no other: any other error from a filter makes the
-/// pipeline throw for such a handler. Returning a success without calling <c>next</c> is a bug
+/// (<see cref="Unauthorized"/>, <see cref="Forbidden"/>, <see cref="RateLimited"/>,
+/// <see cref="Unavailable"/>, or <see cref="ConcurrencyConflict"/> from a transaction whose save
+/// found the data changed, after <c>next</c>), since a handler that declares its errors accepts no
+/// other: any other error from a filter makes the pipeline throw for such a handler. Returning a success without calling <c>next</c> is a bug
 /// too: the handler's value would be missing.
 /// </remarks>
 /// <example>

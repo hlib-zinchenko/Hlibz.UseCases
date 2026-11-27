@@ -4,9 +4,9 @@
     </PropertyGroup>
     <ItemGroup>
         <!-- A minimum: packed as ">= 3.0.0", so an app picks any newer 3.x itself. -->
-        <PackageVersion Include="Hlibz.Results" Version="3.0.0-preview.1" />
+        <PackageVersion Include="Hlibz.Results" Version="3.0.0-preview.2" />
         <!-- Samples only: Atlas.Api sends the use cases' results as HTTP responses. -->
-        <PackageVersion Include="Hlibz.Results.AspNetCore" Version="3.0.0-preview.1" />
+        <PackageVersion Include="Hlibz.Results.AspNetCore" Version="3.0.0-preview.2" />
         <!--
             The Microsoft.Extensions abstractions, both minimums (Dependabot ignores them).
             Microsoft.Extensions.DependencyInjection and Microsoft.Extensions.Validation are

@@ -180,7 +180,7 @@ public sealed class UseCasePipeline
                 $"A use case filter failed {handler.GetType()} with {error.GetType().Name}, which "
                 + $"is neither an {nameof(AmbientError)} nor one of {typeof(TError).Name}'s "
                 + "errors. A filter stops with an ambient error (Unauthorized, Forbidden, "
-                + "Unavailable).",
+                + "ConcurrencyConflict, RateLimited, Unavailable).",
                 exception);
         }
     }

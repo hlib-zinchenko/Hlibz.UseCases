@@ -231,6 +231,21 @@ public sealed class PipelineTests
     }
 
     [Fact]
+    public async Task HandleAsync_WithDeclaredErrorsAndFilterFailingAfterNext_ReturnsItsFailure()
+    {
+        using ServiceProvider provider = Services.Build(services => services.AddUseCaseFilter<ConflictingSaveFilter>());
+        using IServiceScope scope = provider.CreateScope();
+
+        Result<CityDto, RenameCityError> result = await scope.ServiceProvider
+            .GetRequiredService<IRenameCityCommandHandler>()
+            .HandleAsync(new RenameCityCommand(1, "Odesa"), Token);
+
+        Assert.IsType<ConcurrencyConflict>(result.Error);
+        Assert.Null(result.DeclaredError);
+        Assert.Contains("saving:Success", provider.GetRequiredService<CallLog>().Entries);
+    }
+
+    [Fact]
     public async Task HandleAsync_WithDeclaredErrorsAndFilterFailingWithUndeclaredError_Throws()
     {
         using ServiceProvider provider = Services.Build(services => services.AddUseCaseFilter<UndeclaredErrorFilter>());
