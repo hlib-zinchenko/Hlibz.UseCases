@@ -53,9 +53,6 @@ How it fits together:
   packed. Keep `samples/README.md` in step. No OpenAPI here: Hlibz.Stack is where the packages
   meet.
 
-Until the .NET 11 majors ship, `NuGet.config` adds the local folder feed `~/LocalNuGet`, where
-Hlibz.Results 3.0 previews are packed (`check-packed-generator.sh` adds it too, when it exists).
-
 ## Requires
 
 * The .NET SDK `global.json` pins (11.0.100, patches roll forward). Pinned because warnings are

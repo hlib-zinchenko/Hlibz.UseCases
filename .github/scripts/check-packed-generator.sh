@@ -23,29 +23,17 @@ trap 'rm -rf "$work"' EXIT
 # Its own package cache: the packed version must never land in the machine-wide one.
 export NUGET_PACKAGES="$work/packages"
 
-# Until Hlibz.Results 3.0 ships, it comes from the local folder feed the repository's NuGet.config
-# names, when there is one.
-local_feed="${HLIBZ_LOCAL_FEED:-$HOME/LocalNuGet}"
-local_source=""
-local_mapping=""
-if [ -d "$local_feed" ]; then
-  local_source="<add key=\"local\" value=\"$local_feed\" />"
-  local_mapping="<packageSource key=\"local\"><package pattern=\"Hlibz.Results\" /></packageSource>"
-fi
-
 cat > "$work/nuget.config" <<XML
 <configuration>
   <packageSources>
     <clear />
     <add key="artifacts" value="$artifacts" />
-    $local_source
     <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
   </packageSources>
   <packageSourceMapping>
     <packageSource key="artifacts">
       <package pattern="Hlibz.UseCases" />
     </packageSource>
-    $local_mapping
     <packageSource key="nuget.org">
       <package pattern="*" />
     </packageSource>

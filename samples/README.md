@@ -18,6 +18,3 @@ dotnet run --project samples/Atlas.Console -- create Lviv UA 717273      # creat
 The samples use only the Hlibz packages they need (Hlibz.Results.AspNetCore over HTTP). The OpenAPI
 document with the use cases' rules and each declared error (Hlibz.OpenApi.UseCases,
 Hlibz.OpenApi.Results) is in Hlibz.Stack, where the packages meet.
-
-Until the .NET 11 majors ship, Hlibz.Results 3.0 comes from the local folder feed
-`~/LocalNuGet` (`NuGet.config`).
